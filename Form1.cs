@@ -20,6 +20,9 @@ namespace KeepSessionAlive
         static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
 
         [DllImport("user32.dll")]
+        static extern bool LockWorkStation();
+
+        [DllImport("user32.dll")]
         static extern IntPtr GetForegroundWindow();
 
         [DllImport("user32.dll")]
@@ -106,6 +109,8 @@ namespace KeepSessionAlive
             notifyIcon1.Visible = false;
             Application.Exit();
         }
+
+        private void buttonLock_Click(object sender, EventArgs e) => LockWorkStation();
 
         private void RestoreFromTray()
         {

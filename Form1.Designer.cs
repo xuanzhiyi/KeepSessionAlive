@@ -17,6 +17,7 @@ namespace KeepSessionAlive
         {
             this.button1           = new System.Windows.Forms.Button();
             this.buttonLog         = new System.Windows.Forms.Button();
+            this.buttonLock        = new System.Windows.Forms.Button();
             this.textBox1          = new System.Windows.Forms.TextBox();
             this.dataGridView1     = new System.Windows.Forms.DataGridView();
             this.colApp            = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -52,6 +53,16 @@ namespace KeepSessionAlive
             this.buttonLog.Text = "Log";
             this.buttonLog.UseVisualStyleBackColor = true;
             this.buttonLog.Click += new System.EventHandler(this.buttonLog_Click);
+            //
+            // buttonLock
+            //
+            this.buttonLock.Location = new System.Drawing.Point(241, 12);
+            this.buttonLock.Name = "buttonLock";
+            this.buttonLock.Size = new System.Drawing.Size(90, 23);
+            this.buttonLock.TabIndex = 2;
+            this.buttonLock.Text = "Lock Screen";
+            this.buttonLock.UseVisualStyleBackColor = true;
+            this.buttonLock.Click += new System.EventHandler(this.buttonLock_Click);
             //
             // textBox1 — hidden by default, toggled by buttonLog
             //
@@ -168,6 +179,7 @@ namespace KeepSessionAlive
             this.Controls.Add(this.labelWorkTitle);
             this.Controls.Add(this.dataGridView1);
             this.Controls.Add(this.textBox1);
+            this.Controls.Add(this.buttonLock);
             this.Controls.Add(this.buttonLog);
             this.Controls.Add(this.button1);
             this.MinimumSize = new System.Drawing.Size(511, 387);
@@ -188,6 +200,7 @@ namespace KeepSessionAlive
         private System.Windows.Forms.DataGridView dataGridView1;
         private System.Windows.Forms.DataGridViewTextBoxColumn colApp;
         private System.Windows.Forms.DataGridViewTextBoxColumn colTime;
+        private System.Windows.Forms.Button buttonLock;
         private System.Windows.Forms.Label labelWorkTitle;
         private System.Windows.Forms.Label labelWorkTime;
         private System.Windows.Forms.Label labelIdleTitle;

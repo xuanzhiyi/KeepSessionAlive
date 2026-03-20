@@ -142,6 +142,30 @@ namespace KeepSessionAlive
             trayMenuExit.ForeColor    = text;
         }
 
+        // ── Custom title bar drag ──────────────────────────────────────────────
+        private System.Drawing.Point _dragStart;
+        private bool _dragging;
+
+        private void TitleBar_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                _dragging  = true;
+                _dragStart = e.Location;
+            }
+        }
+
+        private void TitleBar_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (_dragging)
+                this.Location = new System.Drawing.Point(
+                    this.Left + e.X - _dragStart.X,
+                    this.Top  + e.Y - _dragStart.Y);
+        }
+
+        private void BtnClose_Click(object sender, EventArgs e)    => Application.Exit();
+        private void BtnMinimize_Click(object sender, EventArgs e) => this.WindowState = FormWindowState.Minimized;
+
         // Programmatically build a small green circle icon for the tray
         private static System.Drawing.Icon BuildTrayIcon()
         {

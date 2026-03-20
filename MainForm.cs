@@ -98,14 +98,6 @@ namespace KeepSessionAlive
             this.BackColor = bg;
             this.ForeColor = text;
 
-            // Buttons
-            button1.BackColor = surface;
-            button1.ForeColor = orange;
-            button1.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            button1.FlatAppearance.BorderColor = orange;
-            button1.FlatAppearance.MouseOverBackColor = hover;
-            button1.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(85, 85, 85);
-
             // Status strip
             statusStrip1.BackColor = System.Drawing.Color.FromArgb(20, 20, 20);
             statusStrip1.ForeColor = text;
@@ -115,8 +107,8 @@ namespace KeepSessionAlive
             statusLock.ForeColor   = orange;
             statusLock.LinkColor   = orange;
             statusLock.ActiveLinkColor = System.Drawing.Color.White;
-            statusRecord.ForeColor     = orange;
-            statusRecord.LinkColor     = orange;
+            statusRecord.ForeColor       = orange;
+            statusRecord.LinkColor       = orange;
             statusRecord.ActiveLinkColor = System.Drawing.Color.White;
 
             // Log text box
@@ -426,20 +418,24 @@ namespace KeepSessionAlive
             mouse_event(MOUSEEVENTF_RIGHTUP, Control.MousePosition.X, Control.MousePosition.Y, 0, 0);
         }
 
-        // --- Start / Stop button ---
-        private async void button1_Click(object sender, EventArgs e)
+        // --- Start / Stop (status strip) ---
+        private async void statusOnline_Click(object sender, EventArgs e)
         {
             if (_cts != null)
             {
                 _cts.Cancel();
                 _cts = null;
-                button1.Text = "Always online : Off";
+                statusOnline.Text = "\u25CF";
+                statusOnline.ForeColor = System.Drawing.Color.Gold;
+                statusOnline.ToolTipText = "Keep Online: Off";
                 AppendTextBox($"{DateTime.Now:HH:mm:ss} - Stopped.\r\n");
                 return;
             }
 
             _cts = new CancellationTokenSource();
-            button1.Text = "Always online : On";
+            statusOnline.Text = "\u25CF";
+            statusOnline.ForeColor = System.Drawing.Color.LimeGreen;
+            statusOnline.ToolTipText = "Keep Online: On";
             AppendTextBox($"{DateTime.Now:HH:mm:ss} - Started. Waiting for {IdleThresholdMs / 60000} min idle...\r\n");
 
             var token = _cts.Token;
@@ -449,7 +445,9 @@ namespace KeepSessionAlive
             {
                 Invoke(new Action(() =>
                 {
-                    button1.Text = "Always online : Off";
+                    statusOnline.Text = "\u25CF";
+                    statusOnline.ForeColor = System.Drawing.Color.Gold;
+                    statusOnline.ToolTipText = "Keep Online: Off";
                     _cts = null;
                 }));
             }
@@ -519,7 +517,7 @@ namespace KeepSessionAlive
             await ShowCountdownAsync();
             StartRecording();
             statusRecord.Text = "\u23F9";
-                statusRecord.ToolTipText = "Stop Recording";
+            statusRecord.ToolTipText = "Stop Recording";
             statusRecord.Enabled = true;
             _isRecording = true;
         }
@@ -601,21 +599,21 @@ namespace KeepSessionAlive
         private void Recorder_OnRecordingComplete(object sender, RecordingCompleteEventArgs e)
         {
             _isRecording = false;
-            Invoke(new Action(() =>
+            BeginInvoke(new Action(() =>
             {
                 AppendTextBox($"{DateTime.Now:HH:mm:ss} - Recording stopped.\r\n");
                 statusRecord.Text = "\u23FA";
                 statusRecord.ToolTipText = "Start Recording";
                 statusRecord.Enabled = true;
-                SaveRecording();
                 CleanupRecorder();
+                SaveRecording();
             }));
         }
 
         private void Recorder_OnRecordingFailed(object sender, RecordingFailedEventArgs e)
         {
             _isRecording = false;
-            Invoke(new Action(() =>
+            BeginInvoke(new Action(() =>
             {
                 AppendTextBox($"{DateTime.Now:HH:mm:ss} - Recording failed: {e.Error}\r\n");
                 statusRecord.Text = "\u23FA";

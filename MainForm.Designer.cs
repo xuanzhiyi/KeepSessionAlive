@@ -15,7 +15,6 @@ namespace KeepSessionAlive
 
         private void InitializeComponent()
         {
-            this.button1           = new System.Windows.Forms.Button();
             this.textBox1          = new System.Windows.Forms.TextBox();
             this.dataGridView1     = new System.Windows.Forms.DataGridView();
             this.colApp            = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -96,16 +95,6 @@ namespace KeepSessionAlive
             this.btnClose.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(180, 30, 30);
             this.btnClose.Click += new System.EventHandler(this.BtnClose_Click);
             //
-            // button1
-            //
-            this.button1.Location = new System.Drawing.Point(12, 47);
-            this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(471, 23);
-            this.button1.TabIndex = 0;
-            this.button1.Text = "Always online : Off";
-            this.button1.UseVisualStyleBackColor = true;
-            this.button1.Click += new System.EventHandler(this.button1_Click);
-            //
             // dataGridView1
             //
             this.dataGridView1.AllowUserToAddRows = false;
@@ -113,13 +102,13 @@ namespace KeepSessionAlive
             this.dataGridView1.AllowUserToResizeRows = false;
             this.dataGridView1.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.dataGridView1.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] { this.colApp, this.colTime });
-            this.dataGridView1.Location = new System.Drawing.Point(12, 76);
+            this.dataGridView1.Location = new System.Drawing.Point(12, 41);
             this.dataGridView1.Name = "dataGridView1";
             this.dataGridView1.ReadOnly = true;
             this.dataGridView1.RowHeadersVisible = false;
             this.dataGridView1.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.dataGridView1.Size = new System.Drawing.Size(471, 185);
-            this.dataGridView1.TabIndex = 2;
+            this.dataGridView1.Size = new System.Drawing.Size(471, 220);
+            this.dataGridView1.TabIndex = 0;
             //
             // colApp
             //
@@ -183,9 +172,11 @@ namespace KeepSessionAlive
             //
             // statusStrip1
             //
+            this.statusOnline       = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusRecord       = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusSpacer       = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+                this.statusOnline,
                 this.statusLog,
                 this.statusLock,
                 this.statusSpacer,
@@ -193,6 +184,17 @@ namespace KeepSessionAlive
             this.statusStrip1.Name = "statusStrip1";
             this.statusStrip1.Size = new System.Drawing.Size(495, 32);
             this.statusStrip1.SizingGrip = false;
+            //
+            // statusOnline
+            //
+            this.statusOnline.Name = "statusOnline";
+            this.statusOnline.Text = "\u25CF";
+            this.statusOnline.Font = new System.Drawing.Font("Segoe UI", 16F);
+            this.statusOnline.ForeColor = System.Drawing.Color.Gold;
+            this.statusOnline.BorderSides = System.Windows.Forms.ToolStripStatusLabelBorderSides.Right;
+            this.statusOnline.Padding = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.statusOnline.ToolTipText = "Keep Online: Off";
+            this.statusOnline.Click += new System.EventHandler(this.statusOnline_Click);
             //
             // statusLog
             //
@@ -275,7 +277,6 @@ namespace KeepSessionAlive
             this.Controls.Add(this.labelWorkTitle);
             this.Controls.Add(this.dataGridView1);
             this.Controls.Add(this.textBox1);
-            this.Controls.Add(this.button1);
             this.Controls.Add(this.panelTitleBar);
             this.Controls.Add(this.statusStrip1);
             this.MinimumSize = new System.Drawing.Size(495, 410);
@@ -293,7 +294,6 @@ namespace KeepSessionAlive
 
         #endregion
 
-        private System.Windows.Forms.Button button1;
         private System.Windows.Forms.TextBox textBox1;
         private System.Windows.Forms.DataGridView dataGridView1;
         private System.Windows.Forms.DataGridViewTextBoxColumn colApp;
@@ -313,6 +313,7 @@ namespace KeepSessionAlive
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel statusLog;
         private System.Windows.Forms.ToolStripStatusLabel statusLock;
+        private System.Windows.Forms.ToolStripStatusLabel statusOnline;
         private System.Windows.Forms.ToolStripStatusLabel statusSpacer;
         private System.Windows.Forms.ToolStripStatusLabel statusRecord;
     }

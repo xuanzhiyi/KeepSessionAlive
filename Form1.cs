@@ -69,11 +69,77 @@ namespace KeepSessionAlive
             InitializeComponent();
 
             notifyIcon1.Icon = BuildTrayIcon();
+            ApplyDarkTheme();
 
             _idleDisplayTimer = new System.Windows.Forms.Timer();
             _idleDisplayTimer.Interval = 1000;
             _idleDisplayTimer.Tick += IdleDisplayTimer_Tick;
             _idleDisplayTimer.Start();
+        }
+
+        private void ApplyDarkTheme()
+        {
+            var bg      = System.Drawing.Color.FromArgb(28, 28, 28);
+            var surface = System.Drawing.Color.FromArgb(45, 45, 45);
+            var border  = System.Drawing.Color.FromArgb(70, 70, 70);
+            var orange  = System.Drawing.Color.FromArgb(255, 140, 0);
+            var text    = System.Drawing.Color.FromArgb(220, 220, 220);
+            var hover   = System.Drawing.Color.FromArgb(65, 65, 65);
+
+            // Form
+            this.BackColor = bg;
+            this.ForeColor = text;
+
+            // Buttons
+            foreach (var btn in new[] { button1, buttonLog, buttonLock })
+            {
+                btn.BackColor = surface;
+                btn.ForeColor = orange;
+                btn.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+                btn.FlatAppearance.BorderColor = orange;
+                btn.FlatAppearance.MouseOverBackColor = hover;
+                btn.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(85, 85, 85);
+            }
+
+            // Log text box
+            textBox1.BackColor = surface;
+            textBox1.ForeColor = text;
+            textBox1.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+
+            // DataGridView
+            dataGridView1.BackgroundColor = bg;
+            dataGridView1.GridColor = border;
+            dataGridView1.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            dataGridView1.EnableHeadersVisualStyles = false;
+
+            dataGridView1.DefaultCellStyle.BackColor          = surface;
+            dataGridView1.DefaultCellStyle.ForeColor          = text;
+            dataGridView1.DefaultCellStyle.SelectionBackColor = orange;
+            dataGridView1.DefaultCellStyle.SelectionForeColor = System.Drawing.Color.Black;
+
+            dataGridView1.AlternatingRowsDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(38, 38, 38);
+            dataGridView1.AlternatingRowsDefaultCellStyle.ForeColor = text;
+
+            dataGridView1.ColumnHeadersDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(35, 35, 35);
+            dataGridView1.ColumnHeadersDefaultCellStyle.ForeColor = orange;
+            dataGridView1.ColumnHeadersDefaultCellStyle.Font =
+                new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+
+            // Section title labels
+            labelWorkTitle.ForeColor = orange;
+            labelIdleTitle.ForeColor = orange;
+
+            // Working time: brighter green for dark background
+            labelWorkTime.ForeColor = System.Drawing.Color.LimeGreen;
+            // Idle time: goldenrod already visible on dark bg — no change needed
+
+            // Tray context menu
+            trayContextMenu.BackColor = surface;
+            trayContextMenu.ForeColor = text;
+            trayMenuRestore.BackColor = surface;
+            trayMenuRestore.ForeColor = text;
+            trayMenuExit.BackColor    = surface;
+            trayMenuExit.ForeColor    = text;
         }
 
         // Programmatically build a small green circle icon for the tray

@@ -120,8 +120,10 @@ namespace KeepSessionAlive
             dataGridView1.AlternatingRowsDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(38, 38, 38);
             dataGridView1.AlternatingRowsDefaultCellStyle.ForeColor = text;
 
-            dataGridView1.ColumnHeadersDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(35, 35, 35);
-            dataGridView1.ColumnHeadersDefaultCellStyle.ForeColor = orange;
+            dataGridView1.ColumnHeadersDefaultCellStyle.BackColor          = System.Drawing.Color.FromArgb(35, 35, 35);
+            dataGridView1.ColumnHeadersDefaultCellStyle.ForeColor          = orange;
+            dataGridView1.ColumnHeadersDefaultCellStyle.SelectionBackColor = System.Drawing.Color.FromArgb(35, 35, 35);
+            dataGridView1.ColumnHeadersDefaultCellStyle.SelectionForeColor = orange;
             dataGridView1.ColumnHeadersDefaultCellStyle.Font =
                 new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
 
@@ -141,6 +143,30 @@ namespace KeepSessionAlive
             trayMenuExit.BackColor    = surface;
             trayMenuExit.ForeColor    = text;
         }
+
+        // ── Custom title bar drag ──────────────────────────────────────────────
+        private System.Drawing.Point _dragStart;
+        private bool _dragging;
+
+        private void TitleBar_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                _dragging  = true;
+                _dragStart = e.Location;
+            }
+        }
+
+        private void TitleBar_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (_dragging)
+                this.Location = new System.Drawing.Point(
+                    this.Left + e.X - _dragStart.X,
+                    this.Top  + e.Y - _dragStart.Y);
+        }
+
+        private void BtnClose_Click(object sender, EventArgs e)    => Application.Exit();
+        private void BtnMinimize_Click(object sender, EventArgs e) => this.WindowState = FormWindowState.Minimized;
 
         // Programmatically build a small green circle icon for the tray
         private static System.Drawing.Icon BuildTrayIcon()

@@ -120,8 +120,10 @@ namespace KeepSessionAlive
             dataGridView1.AlternatingRowsDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(38, 38, 38);
             dataGridView1.AlternatingRowsDefaultCellStyle.ForeColor = text;
 
-            dataGridView1.ColumnHeadersDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(35, 35, 35);
-            dataGridView1.ColumnHeadersDefaultCellStyle.ForeColor = orange;
+            dataGridView1.ColumnHeadersDefaultCellStyle.BackColor          = System.Drawing.Color.FromArgb(35, 35, 35);
+            dataGridView1.ColumnHeadersDefaultCellStyle.ForeColor          = orange;
+            dataGridView1.ColumnHeadersDefaultCellStyle.SelectionBackColor = System.Drawing.Color.FromArgb(35, 35, 35);
+            dataGridView1.ColumnHeadersDefaultCellStyle.SelectionForeColor = orange;
             dataGridView1.ColumnHeadersDefaultCellStyle.Font =
                 new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
 

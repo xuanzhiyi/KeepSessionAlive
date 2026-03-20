@@ -1,12 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using WindowsInput;
-using WindowsInput.Native;
 
 namespace KeepSessionAlive
 {
@@ -17,30 +16,31 @@ namespace KeepSessionAlive
         static extern void mouse_event(int dwFlags, int dx, int dy, int dwData, int dwExtraInfo);
 
         [DllImport("user32.dll")]
-        static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, uint dwExtraInfo);
-
-        [DllImport("user32.dll")]
         static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
 
         [DllImport("user32.dll")]
-        static extern bool ClientToScreen(IntPtr hWnd, ref Point lpPoint);
+        static extern IntPtr GetForegroundWindow();
 
         [DllImport("user32.dll")]
-        internal static extern uint SendInput(uint nInputs, [MarshalAs(UnmanagedType.LPArray), In] INPUT[] pInputs, int cbSize);
+        static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
         // --- Mouse constants ---
-        private const int MOUSEEVENTF_MOVE       = 0x0001;
-        private const int MOUSEEVENTF_LEFTDOWN   = 0x0002;
-        private const int MOUSEEVENTF_LEFTUP     = 0x0004;
-        private const int MOUSEEVENTF_RIGHTDOWN  = 0x0008;
-        private const int MOUSEEVENTF_RIGHTUP    = 0x0010;
-        private const int MOUSEEVENTF_MIDDLEDOWN = 0x0020;
-        private const int MOUSEEVENTF_MIDDLEUP   = 0x0040;
-        private const int MOUSEEVENTF_ABSOLUTE   = 0x8000;
+        private const int MOUSEEVENTF_MOVE      = 0x0001;
+        private const int MOUSEEVENTF_LEFTDOWN  = 0x0002;
+        private const int MOUSEEVENTF_LEFTUP    = 0x0004;
+        private const int MOUSEEVENTF_RIGHTDOWN = 0x0008;
+        private const int MOUSEEVENTF_RIGHTUP   = 0x0010;
+        private const int MOUSEEVENTF_ABSOLUTE  = 0x8000;
 
-        // 5 minutes of idle before triggering; check every 10 seconds
-        private const int IdleThresholdMs = 5 * 60 * 1000;
-        private const int CheckIntervalMs = 10_000;
+        // 5 minutes of idle before triggering keep-alive; check every 10 seconds
+        private const int IdleThresholdMs        = 5 * 60 * 1000;
+        private const int CheckIntervalMs        = 10_000;
+
+        // Idle display starts after 10 s; app time only counted when active
+        private const int IdleDisplayThresholdMs = 10_000;
+
+        // Height added to the form when the log panel is visible
+        private const int LogAreaHeight = 116; // textBox1 height (110) + gap (6)
 
         // --- Structs ---
         [StructLayout(LayoutKind.Sequential)]
@@ -50,37 +50,94 @@ namespace KeepSessionAlive
             public uint dwTime;
         }
 
-#pragma warning disable 649
-        internal struct INPUT
-        {
-            public UInt32 Type;
-            public MOUSEKEYBDHARDWAREINPUT Data;
-        }
-
-        [StructLayout(LayoutKind.Explicit)]
-        internal struct MOUSEKEYBDHARDWAREINPUT
-        {
-            [FieldOffset(0)]
-            public MOUSEINPUT Mouse;
-        }
-
-        internal struct MOUSEINPUT
-        {
-            public Int32 X;
-            public Int32 Y;
-            public UInt32 MouseData;
-            public UInt32 Flags;
-            public UInt32 Time;
-            public IntPtr ExtraInfo;
-        }
-#pragma warning restore 649
-
         // --- State ---
         private CancellationTokenSource _cts;
+        private System.Windows.Forms.Timer _idleDisplayTimer;
+        private long _totalIdleSeconds = 0;
+
+        // App tracking: name -> accumulated seconds, name -> grid row index
+        private readonly Dictionary<string, long> _appSeconds = new Dictionary<string, long>();
+        private readonly Dictionary<string, int>  _appRowMap  = new Dictionary<string, int>();
 
         public Form1()
         {
             InitializeComponent();
+
+            _idleDisplayTimer = new System.Windows.Forms.Timer();
+            _idleDisplayTimer.Interval = 1000;
+            _idleDisplayTimer.Tick += IdleDisplayTimer_Tick;
+            _idleDisplayTimer.Start();
+        }
+
+        // --- Every-second timer: idle counter + app tracker ---
+        private void IdleDisplayTimer_Tick(object sender, EventArgs e)
+        {
+            uint idleMs = GetIdleTimeMs();
+
+            if (idleMs >= IdleDisplayThresholdMs)
+            {
+                // Accumulate idle time and update the big display
+                _totalIdleSeconds++;
+                long h = _totalIdleSeconds / 3600;
+                long m = (_totalIdleSeconds % 3600) / 60;
+                long s = _totalIdleSeconds % 60;
+                labelIdleTime.Text = $"{h}:{m:D2}:{s:D2}";
+            }
+            else
+            {
+                // User is active — record time against the foreground app
+                string app = GetForegroundAppName();
+                if (app != null)
+                    RecordAppSecond(app);
+            }
+        }
+
+        // --- Get the process name of the foreground window ---
+        private static string GetForegroundAppName()
+        {
+            try
+            {
+                IntPtr hwnd = GetForegroundWindow();
+                if (hwnd == IntPtr.Zero) return null;
+                GetWindowThreadProcessId(hwnd, out uint pid);
+                string name = Process.GetProcessById((int)pid).ProcessName;
+                // Capitalise first letter for display
+                return char.ToUpper(name[0]) + name.Substring(1);
+            }
+            catch { return null; }
+        }
+
+        // --- Add one second to the given app's row in the grid ---
+        private void RecordAppSecond(string appName)
+        {
+            if (!_appSeconds.ContainsKey(appName))
+            {
+                _appSeconds[appName] = 0;
+                int idx = dataGridView1.Rows.Add(appName, "0:00:00");
+                _appRowMap[appName] = idx;
+            }
+
+            _appSeconds[appName]++;
+            long total = _appSeconds[appName];
+            long h = total / 3600;
+            long m = (total % 3600) / 60;
+            long s = total % 60;
+            dataGridView1.Rows[_appRowMap[appName]].Cells["colTime"].Value = $"{h}:{m:D2}:{s:D2}";
+        }
+
+        // --- Log toggle button ---
+        private void buttonLog_Click(object sender, EventArgs e)
+        {
+            bool show = !textBox1.Visible;
+            textBox1.Visible = show;
+
+            int delta = show ? LogAreaHeight : -LogAreaHeight;
+            dataGridView1.Top   += delta;
+            labelIdleTitle.Top  += delta;
+            labelIdleTime.Top   += delta;
+            this.Height         += delta;
+
+            buttonLog.Text = show ? "Hide Log" : "Log";
         }
 
         // --- Idle time helper ---
@@ -154,7 +211,6 @@ namespace KeepSessionAlive
             var token = _cts.Token;
             await Task.Run(() => RunLoop(token));
 
-            // Reached only if RunLoop exits naturally (shouldn't happen, but be safe)
             if (!token.IsCancellationRequested)
             {
                 Invoke(new Action(() =>
@@ -165,7 +221,7 @@ namespace KeepSessionAlive
             }
         }
 
-        // --- Main loop: wait for idle, then simulate activity ---
+        // --- Main loop: wait for idle threshold, then simulate activity ---
         private void RunLoop(CancellationToken ct)
         {
             while (!ct.IsCancellationRequested)
@@ -179,32 +235,26 @@ namespace KeepSessionAlive
                     AppendTextBox($"{DateTime.Now:HH:mm:ss} - Done. Resuming idle watch...\r\n");
                 }
 
-                // Sleep in small chunks so cancellation is responsive
                 for (int i = 0; i < CheckIntervalMs / 500 && !ct.IsCancellationRequested; i++)
                     Thread.Sleep(500);
             }
         }
 
-        // --- Safe activity: right-click at center, move left, left-click to dismiss ---
+        // --- Safe activity: right-click at center, dismiss with left-click ---
         private void PerformActivity()
         {
             int cx = Screen.PrimaryScreen.Bounds.Width  / 2;
             int cy = Screen.PrimaryScreen.Bounds.Height / 2;
 
-            // Move to screen center
-            Cursor.Position = new Point(cx, cy);
+            Cursor.Position = new System.Drawing.Point(cx, cy);
             Thread.Sleep(400);
 
-            // Right-click: opens a context menu without executing anything
             RightClick();
             Thread.Sleep(600);
 
-            // Move left 150px — context menus open to the right/below, so this
-            // lands clearly outside the menu
-            Cursor.Position = new Point(cx - 150, cy);
+            Cursor.Position = new System.Drawing.Point(cx - 150, cy);
             Thread.Sleep(400);
 
-            // Left-click: dismisses the context menu harmlessly
             LeftClick();
             Thread.Sleep(400);
         }
@@ -218,49 +268,6 @@ namespace KeepSessionAlive
                 return;
             }
             textBox1.AppendText(value);
-        }
-
-        // --- Open Citrix (unchanged) ---
-        private void button2_Click(object sender, EventArgs e)
-        {
-            var psi = new ProcessStartInfo
-            {
-                FileName = @"https://csgsf.oneadr.net/Citrix/VipProd_ExternalStoreWeb/",
-                UseShellExecute = true,
-            };
-            Process p = null;
-            try
-            {
-                p = Process.Start(psi);
-                p.WaitForInputIdle();
-                var window = p.MainWindowHandle;
-                Thread.Sleep(1000);
-                ClickOnPoint(window, new Point(300, 300));
-                p.WaitForExit();
-            }
-            catch { }
-            try
-            {
-                if (p.HasExited) { }
-            }
-            catch (InvalidOperationException) { }
-        }
-
-        public static void ClickOnPoint(IntPtr wndHandle, Point clientPoint)
-        {
-            ClientToScreen(wndHandle, ref clientPoint);
-            Cursor.Position = new Point(clientPoint.X, clientPoint.Y);
-
-            var inputMouseDown = new INPUT();
-            inputMouseDown.Type = 0;
-            inputMouseDown.Data.Mouse.Flags = 0x0002;
-
-            var inputMouseUp = new INPUT();
-            inputMouseUp.Type = 0;
-            inputMouseUp.Data.Mouse.Flags = 0x0004;
-
-            var inputs = new INPUT[] { inputMouseDown, inputMouseUp };
-            SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
         }
 
         private void runQuery()

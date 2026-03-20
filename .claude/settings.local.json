@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls *.sln)",
+      "Bash(nuget install:*)",
+      "Bash(where nuget:*)",
+      "Bash(where dotnet:*)"
+    ]
+  }
+}

@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Automation;
 using System.Windows.Forms;
+using ScreenRecorderLib;
 using WindowsInput;
 
 namespace KeepSessionAlive
@@ -64,6 +67,11 @@ namespace KeepSessionAlive
         private readonly Dictionary<string, long> _appSeconds = new Dictionary<string, long>();
         private readonly Dictionary<string, int>  _appRowMap  = new Dictionary<string, int>();
 
+        // --- Recording state ---
+        private Recorder _recorder;
+        private string   _tempVideoPath;
+        private bool     _isRecording;
+
         public MainForm()
         {
             InitializeComponent();
@@ -91,15 +99,25 @@ namespace KeepSessionAlive
             this.ForeColor = text;
 
             // Buttons
-            foreach (var btn in new[] { button1, buttonLog, buttonLock })
-            {
-                btn.BackColor = surface;
-                btn.ForeColor = orange;
-                btn.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-                btn.FlatAppearance.BorderColor = orange;
-                btn.FlatAppearance.MouseOverBackColor = hover;
-                btn.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(85, 85, 85);
-            }
+            button1.BackColor = surface;
+            button1.ForeColor = orange;
+            button1.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            button1.FlatAppearance.BorderColor = orange;
+            button1.FlatAppearance.MouseOverBackColor = hover;
+            button1.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(85, 85, 85);
+
+            // Status strip
+            statusStrip1.BackColor = System.Drawing.Color.FromArgb(20, 20, 20);
+            statusStrip1.ForeColor = text;
+            statusLog.ForeColor    = orange;
+            statusLog.LinkColor    = orange;
+            statusLog.ActiveLinkColor  = System.Drawing.Color.White;
+            statusLock.ForeColor   = orange;
+            statusLock.LinkColor   = orange;
+            statusLock.ActiveLinkColor = System.Drawing.Color.White;
+            statusRecord.ForeColor     = orange;
+            statusRecord.LinkColor     = orange;
+            statusRecord.ActiveLinkColor = System.Drawing.Color.White;
 
             // Log text box
             textBox1.BackColor = surface;
@@ -165,6 +183,11 @@ namespace KeepSessionAlive
                     this.Top  + e.Y - _dragStart.Y);
         }
 
+        private void TitleBar_MouseUp(object sender, MouseEventArgs e)
+        {
+            _dragging = false;
+        }
+
         private void BtnClose_Click(object sender, EventArgs e)    => Application.Exit();
         private void BtnMinimize_Click(object sender, EventArgs e) => this.WindowState = FormWindowState.Minimized;
 
@@ -202,7 +225,7 @@ namespace KeepSessionAlive
             Application.Exit();
         }
 
-        private void buttonLock_Click(object sender, EventArgs e) => LockWorkStation();
+        private void statusLock_Click(object sender, EventArgs e) => LockWorkStation();
 
         private void RestoreFromTray()
         {
@@ -343,21 +366,12 @@ namespace KeepSessionAlive
             dataGridView1.Rows[_appRowMap[appName]].Cells["colTime"].Value = $"{h}:{m:D2}:{s:D2}";
         }
 
-        // --- Log toggle button ---
-        private void buttonLog_Click(object sender, EventArgs e)
+        // --- Log toggle (status strip) ---
+        private void statusLog_Click(object sender, EventArgs e)
         {
             bool show = !textBox1.Visible;
             textBox1.Visible = show;
-
-            int delta = show ? LogAreaHeight : -LogAreaHeight;
-            dataGridView1.Top  += delta;
-            labelWorkTitle.Top += delta;
-            labelWorkTime.Top  += delta;
-            labelIdleTitle.Top += delta;
-            labelIdleTime.Top  += delta;
-            this.Height        += delta;
-
-            buttonLog.Text = show ? "Hide Log" : "Log";
+            this.Height += show ? LogAreaHeight : -LogAreaHeight;
         }
 
         // --- Idle time helper ---
@@ -488,6 +502,186 @@ namespace KeepSessionAlive
                 return;
             }
             textBox1.AppendText(value);
+        }
+
+        // ── Screen recording (ScreenRecorderLib) ─────────────────────────────
+
+        private async void statusRecord_Click(object sender, EventArgs e)
+        {
+            if (_isRecording)
+            {
+                statusRecord.Enabled = false;
+                _recorder?.Stop();
+                return;
+            }
+
+            statusRecord.Enabled = false;
+            await ShowCountdownAsync();
+            StartRecording();
+            statusRecord.Text = "\u23F9";
+                statusRecord.ToolTipText = "Stop Recording";
+            statusRecord.Enabled = true;
+            _isRecording = true;
+        }
+
+        // ── Inline countdown overlay ────────────────────────────────────────
+        private async Task ShowCountdownAsync()
+        {
+            using (var overlay = new Form())
+            {
+                overlay.FormBorderStyle = FormBorderStyle.None;
+                overlay.WindowState     = FormWindowState.Maximized;
+                overlay.TopMost         = true;
+                overlay.BackColor       = Color.Black;
+                overlay.Opacity         = 0.65;
+                overlay.ShowInTaskbar   = false;
+                overlay.StartPosition   = FormStartPosition.CenterScreen;
+
+                var lbl = new Label
+                {
+                    Dock      = DockStyle.Fill,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Font      = new Font("Segoe UI", 180F, FontStyle.Bold),
+                    ForeColor = Color.White,
+                    BackColor = Color.Transparent,
+                };
+                overlay.Controls.Add(lbl);
+                overlay.Show();
+
+                for (int i = 3; i >= 1; i--)
+                {
+                    lbl.Text = i.ToString();
+                    lbl.Refresh();
+                    await Task.Delay(1000);
+                }
+            }
+        }
+
+        private void StartRecording()
+        {
+            _tempVideoPath = Path.Combine(
+                Path.GetTempPath(),
+                $"recording_{DateTime.Now:yyyyMMdd_HHmmss}.mp4");
+
+            var opts = new RecorderOptions
+            {
+                OutputOptions = new OutputOptions
+                {
+                    RecorderMode   = RecorderMode.Video,
+                    OutputFrameSize = new ScreenSize(
+                        Screen.PrimaryScreen.Bounds.Width / 2,
+                        Screen.PrimaryScreen.Bounds.Height / 2),
+                },
+                VideoEncoderOptions = new VideoEncoderOptions
+                {
+                    Bitrate   = 2000 * 1000,
+                    Framerate = 15,
+                    IsFixedFramerate = false,
+                    Encoder   = new H264VideoEncoder
+                    {
+                        BitrateMode = H264BitrateControlMode.CBR,
+                    },
+                },
+                AudioOptions = new AudioOptions
+                {
+                    IsAudioEnabled         = true,
+                    IsInputDeviceEnabled   = true,   // microphone
+                    IsOutputDeviceEnabled  = false,   // no system audio
+                },
+            };
+
+            _recorder = Recorder.CreateRecorder(opts);
+            _recorder.OnRecordingComplete += Recorder_OnRecordingComplete;
+            _recorder.OnRecordingFailed   += Recorder_OnRecordingFailed;
+            _recorder.Record(_tempVideoPath);
+
+            AppendTextBox($"{DateTime.Now:HH:mm:ss} - Recording started.\r\n");
+        }
+
+        private void Recorder_OnRecordingComplete(object sender, RecordingCompleteEventArgs e)
+        {
+            _isRecording = false;
+            Invoke(new Action(() =>
+            {
+                AppendTextBox($"{DateTime.Now:HH:mm:ss} - Recording stopped.\r\n");
+                statusRecord.Text = "\u23FA";
+                statusRecord.ToolTipText = "Start Recording";
+                statusRecord.Enabled = true;
+                SaveRecording();
+                CleanupRecorder();
+            }));
+        }
+
+        private void Recorder_OnRecordingFailed(object sender, RecordingFailedEventArgs e)
+        {
+            _isRecording = false;
+            Invoke(new Action(() =>
+            {
+                AppendTextBox($"{DateTime.Now:HH:mm:ss} - Recording failed: {e.Error}\r\n");
+                statusRecord.Text = "\u23FA";
+                statusRecord.ToolTipText = "Start Recording";
+                statusRecord.Enabled = true;
+                CleanupRecorder();
+            }));
+        }
+
+        private void CleanupRecorder()
+        {
+            if (_recorder != null)
+            {
+                _recorder.OnRecordingComplete -= Recorder_OnRecordingComplete;
+                _recorder.OnRecordingFailed   -= Recorder_OnRecordingFailed;
+                _recorder.Dispose();
+                _recorder = null;
+            }
+        }
+
+        private void SaveRecording()
+        {
+            if (string.IsNullOrEmpty(_tempVideoPath) || !File.Exists(_tempVideoPath))
+            {
+                AppendTextBox($"{DateTime.Now:HH:mm:ss} - Recording file not found.\r\n");
+                return;
+            }
+            using (var dlg = new SaveFileDialog())
+            {
+                dlg.Title      = "Save Recording";
+                dlg.Filter     = "MP4 Video|*.mp4";
+                dlg.FileName   = $"Recording_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mp4";
+                dlg.DefaultExt = "mp4";
+
+                if (dlg.ShowDialog() == DialogResult.OK)
+                {
+                    try
+                    {
+                        if (File.Exists(dlg.FileName)) File.Delete(dlg.FileName);
+                        File.Move(_tempVideoPath, dlg.FileName);
+                        AppendTextBox($"{DateTime.Now:HH:mm:ss} - Saved to {dlg.FileName}\r\n");
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Failed to save: {ex.Message}", "Error",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+                else
+                {
+                    try { File.Delete(_tempVideoPath); } catch { }
+                    AppendTextBox($"{DateTime.Now:HH:mm:ss} - Recording discarded.\r\n");
+                }
+            }
+            _tempVideoPath = null;
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (_isRecording)
+            {
+                try { _recorder?.Stop(); } catch { }
+                CleanupRecorder();
+                try { if (_tempVideoPath != null) File.Delete(_tempVideoPath); } catch { }
+            }
+            base.OnFormClosing(e);
         }
 
         private void runQuery()

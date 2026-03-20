@@ -1,20 +1,26 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.29411.108
+# Visual Studio Version 18
+VisualStudioVersion = 18.3.11520.95 d18.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KeepSessionAlive", "KeepSessionAlive.csproj", "{41220004-74ED-443D-B308-FD9E703B793D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
 		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{41220004-74ED-443D-B308-FD9E703B793D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{41220004-74ED-443D-B308-FD9E703B793D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{41220004-74ED-443D-B308-FD9E703B793D}.Debug|x64.ActiveCfg = Debug|x64
+		{41220004-74ED-443D-B308-FD9E703B793D}.Debug|x64.Build.0 = Debug|x64
 		{41220004-74ED-443D-B308-FD9E703B793D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{41220004-74ED-443D-B308-FD9E703B793D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{41220004-74ED-443D-B308-FD9E703B793D}.Release|x64.ActiveCfg = Release|x64
+		{41220004-74ED-443D-B308-FD9E703B793D}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -16,8 +16,6 @@ namespace KeepSessionAlive
         private void InitializeComponent()
         {
             this.button1           = new System.Windows.Forms.Button();
-            this.buttonLog         = new System.Windows.Forms.Button();
-            this.buttonLock        = new System.Windows.Forms.Button();
             this.textBox1          = new System.Windows.Forms.TextBox();
             this.dataGridView1     = new System.Windows.Forms.DataGridView();
             this.colApp            = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -34,9 +32,13 @@ namespace KeepSessionAlive
             this.labelTitle        = new System.Windows.Forms.Label();
             this.btnClose          = new System.Windows.Forms.Button();
             this.btnMinimize       = new System.Windows.Forms.Button();
+            this.statusStrip1      = new System.Windows.Forms.StatusStrip();
+            this.statusLog         = new System.Windows.Forms.ToolStripStatusLabel();
+            this.statusLock        = new System.Windows.Forms.ToolStripStatusLabel();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView1)).BeginInit();
             this.trayContextMenu.SuspendLayout();
             this.panelTitleBar.SuspendLayout();
+            this.statusStrip1.SuspendLayout();
             this.SuspendLayout();
             //
             // panelTitleBar — custom title bar (draggable)
@@ -50,6 +52,7 @@ namespace KeepSessionAlive
             this.panelTitleBar.Controls.Add(this.btnClose);
             this.panelTitleBar.MouseDown += new System.Windows.Forms.MouseEventHandler(this.TitleBar_MouseDown);
             this.panelTitleBar.MouseMove += new System.Windows.Forms.MouseEventHandler(this.TitleBar_MouseMove);
+            this.panelTitleBar.MouseUp += new System.Windows.Forms.MouseEventHandler(this.TitleBar_MouseUp);
             //
             // labelTitle
             //
@@ -61,10 +64,11 @@ namespace KeepSessionAlive
             this.labelTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.labelTitle.MouseDown += new System.Windows.Forms.MouseEventHandler(this.TitleBar_MouseDown);
             this.labelTitle.MouseMove += new System.Windows.Forms.MouseEventHandler(this.TitleBar_MouseMove);
+            this.labelTitle.MouseUp += new System.Windows.Forms.MouseEventHandler(this.TitleBar_MouseUp);
             //
-            // btnMinimize — second from right
+            // btnMinimize
             //
-            this.btnMinimize.Text = "─";
+            this.btnMinimize.Text = "\u2500";
             this.btnMinimize.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.btnMinimize.Size = new System.Drawing.Size(45, 35);
             this.btnMinimize.Location = new System.Drawing.Point(405, 0);
@@ -77,9 +81,9 @@ namespace KeepSessionAlive
             this.btnMinimize.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(60, 60, 60);
             this.btnMinimize.Click += new System.EventHandler(this.BtnMinimize_Click);
             //
-            // btnClose — rightmost
+            // btnClose
             //
-            this.btnClose.Text = "✕";
+            this.btnClose.Text = "\u2715";
             this.btnClose.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.btnClose.Size = new System.Drawing.Size(45, 35);
             this.btnClose.Location = new System.Drawing.Point(450, 0);
@@ -96,41 +100,11 @@ namespace KeepSessionAlive
             //
             this.button1.Location = new System.Drawing.Point(12, 47);
             this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(140, 23);
+            this.button1.Size = new System.Drawing.Size(471, 23);
             this.button1.TabIndex = 0;
             this.button1.Text = "Always online : Off";
             this.button1.UseVisualStyleBackColor = true;
             this.button1.Click += new System.EventHandler(this.button1_Click);
-            //
-            // buttonLog
-            //
-            this.buttonLog.Location = new System.Drawing.Point(158, 47);
-            this.buttonLog.Name = "buttonLog";
-            this.buttonLog.Size = new System.Drawing.Size(75, 23);
-            this.buttonLog.TabIndex = 1;
-            this.buttonLog.Text = "Log";
-            this.buttonLog.UseVisualStyleBackColor = true;
-            this.buttonLog.Click += new System.EventHandler(this.buttonLog_Click);
-            //
-            // buttonLock
-            //
-            this.buttonLock.Location = new System.Drawing.Point(241, 47);
-            this.buttonLock.Name = "buttonLock";
-            this.buttonLock.Size = new System.Drawing.Size(90, 23);
-            this.buttonLock.TabIndex = 2;
-            this.buttonLock.Text = "Lock Screen";
-            this.buttonLock.UseVisualStyleBackColor = true;
-            this.buttonLock.Click += new System.EventHandler(this.buttonLock_Click);
-            //
-            // textBox1 — hidden by default, toggled by buttonLog
-            //
-            this.textBox1.Location = new System.Drawing.Point(12, 76);
-            this.textBox1.Multiline = true;
-            this.textBox1.Name = "textBox1";
-            this.textBox1.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.textBox1.Size = new System.Drawing.Size(471, 110);
-            this.textBox1.TabIndex = 2;
-            this.textBox1.Visible = false;
             //
             // dataGridView1
             //
@@ -145,7 +119,7 @@ namespace KeepSessionAlive
             this.dataGridView1.RowHeadersVisible = false;
             this.dataGridView1.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.dataGridView1.Size = new System.Drawing.Size(471, 185);
-            this.dataGridView1.TabIndex = 3;
+            this.dataGridView1.TabIndex = 2;
             //
             // colApp
             //
@@ -197,6 +171,69 @@ namespace KeepSessionAlive
             this.labelIdleTime.Text = "0:00:00";
             this.labelIdleTime.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             //
+            // textBox1 — hidden by default, below time labels, toggled by status bar
+            //
+            this.textBox1.Location = new System.Drawing.Point(12, 382);
+            this.textBox1.Multiline = true;
+            this.textBox1.Name = "textBox1";
+            this.textBox1.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+            this.textBox1.Size = new System.Drawing.Size(471, 110);
+            this.textBox1.TabIndex = 3;
+            this.textBox1.Visible = false;
+            //
+            // statusStrip1
+            //
+            this.statusRecord       = new System.Windows.Forms.ToolStripStatusLabel();
+            this.statusSpacer       = new System.Windows.Forms.ToolStripStatusLabel();
+            this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+                this.statusLog,
+                this.statusLock,
+                this.statusSpacer,
+                this.statusRecord });
+            this.statusStrip1.Name = "statusStrip1";
+            this.statusStrip1.Size = new System.Drawing.Size(495, 32);
+            this.statusStrip1.SizingGrip = false;
+            //
+            // statusLog
+            //
+            this.statusLog.Name = "statusLog";
+            this.statusLog.Text = "\uD83D\uDDD2";
+            this.statusLog.Font = new System.Drawing.Font("Segoe UI Emoji", 14F);
+            this.statusLog.IsLink = true;
+            this.statusLog.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
+            this.statusLog.BorderSides = System.Windows.Forms.ToolStripStatusLabelBorderSides.Right;
+            this.statusLog.Padding = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.statusLog.ToolTipText = "Toggle Log";
+            this.statusLog.Click += new System.EventHandler(this.statusLog_Click);
+            //
+            // statusLock
+            //
+            this.statusLock.Name = "statusLock";
+            this.statusLock.Text = "\uD83D\uDD10";
+            this.statusLock.Font = new System.Drawing.Font("Segoe UI Emoji", 14F);
+            this.statusLock.IsLink = true;
+            this.statusLock.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
+            this.statusLock.Padding = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.statusLock.ToolTipText = "Lock Screen";
+            this.statusLock.Click += new System.EventHandler(this.statusLock_Click);
+            //
+            // statusSpacer — pushes record to the right
+            //
+            this.statusSpacer.Name = "statusSpacer";
+            this.statusSpacer.Spring = true;
+            this.statusSpacer.Text = "";
+            //
+            // statusRecord
+            //
+            this.statusRecord.Name = "statusRecord";
+            this.statusRecord.Text = "\u23FA";
+            this.statusRecord.Font = new System.Drawing.Font("Segoe UI Emoji", 14F);
+            this.statusRecord.IsLink = true;
+            this.statusRecord.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
+            this.statusRecord.Padding = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.statusRecord.ToolTipText = "Start Recording";
+            this.statusRecord.Click += new System.EventHandler(this.statusRecord_Click);
+            //
             // trayContextMenu
             //
             this.trayContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -230,7 +267,7 @@ namespace KeepSessionAlive
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(495, 383);
+            this.ClientSize = new System.Drawing.Size(495, 410);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
             this.Controls.Add(this.labelIdleTime);
             this.Controls.Add(this.labelIdleTitle);
@@ -238,17 +275,18 @@ namespace KeepSessionAlive
             this.Controls.Add(this.labelWorkTitle);
             this.Controls.Add(this.dataGridView1);
             this.Controls.Add(this.textBox1);
-            this.Controls.Add(this.buttonLock);
-            this.Controls.Add(this.buttonLog);
             this.Controls.Add(this.button1);
             this.Controls.Add(this.panelTitleBar);
-            this.MinimumSize = new System.Drawing.Size(495, 383);
+            this.Controls.Add(this.statusStrip1);
+            this.MinimumSize = new System.Drawing.Size(495, 410);
             this.Name = "Form1";
             this.Text = "Keep Session Alive";
             this.Resize += new System.EventHandler(this.Form1_Resize);
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView1)).EndInit();
             this.trayContextMenu.ResumeLayout(false);
             this.panelTitleBar.ResumeLayout(false);
+            this.statusStrip1.ResumeLayout(false);
+            this.statusStrip1.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
         }
@@ -256,12 +294,10 @@ namespace KeepSessionAlive
         #endregion
 
         private System.Windows.Forms.Button button1;
-        private System.Windows.Forms.Button buttonLog;
         private System.Windows.Forms.TextBox textBox1;
         private System.Windows.Forms.DataGridView dataGridView1;
         private System.Windows.Forms.DataGridViewTextBoxColumn colApp;
         private System.Windows.Forms.DataGridViewTextBoxColumn colTime;
-        private System.Windows.Forms.Button buttonLock;
         private System.Windows.Forms.Label labelWorkTitle;
         private System.Windows.Forms.Label labelWorkTime;
         private System.Windows.Forms.Label labelIdleTitle;
@@ -274,5 +310,10 @@ namespace KeepSessionAlive
         private System.Windows.Forms.Label labelTitle;
         private System.Windows.Forms.Button btnClose;
         private System.Windows.Forms.Button btnMinimize;
+        private System.Windows.Forms.StatusStrip statusStrip1;
+        private System.Windows.Forms.ToolStripStatusLabel statusLog;
+        private System.Windows.Forms.ToolStripStatusLabel statusLock;
+        private System.Windows.Forms.ToolStripStatusLabel statusSpacer;
+        private System.Windows.Forms.ToolStripStatusLabel statusRecord;
     }
 }

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Automation;
 using System.Windows.Forms;
 using WindowsInput;
 
@@ -92,7 +93,13 @@ namespace KeepSessionAlive
             }
         }
 
-        // --- Get the process name of the foreground window ---
+        // Browsers whose active tab URL we can read via UI Automation
+        private static readonly HashSet<string> _browserProcesses =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { "chrome", "msedge", "firefox", "opera", "brave", "vivaldi" };
+
+        // --- Get the display name for the foreground window ---
+        // Returns "Chrome: google.com" for browsers, "Notepad" for others.
         private static string GetForegroundAppName()
         {
             try
@@ -100,9 +107,73 @@ namespace KeepSessionAlive
                 IntPtr hwnd = GetForegroundWindow();
                 if (hwnd == IntPtr.Zero) return null;
                 GetWindowThreadProcessId(hwnd, out uint pid);
-                string name = Process.GetProcessById((int)pid).ProcessName;
-                // Capitalise first letter for display
-                return char.ToUpper(name[0]) + name.Substring(1);
+                string procName = Process.GetProcessById((int)pid).ProcessName;
+                string friendly = char.ToUpper(procName[0]) + procName.Substring(1);
+
+                if (_browserProcesses.Contains(procName))
+                {
+                    string domain = GetBrowserDomain(hwnd);
+                    if (domain != null)
+                        return $"{friendly}: {domain}";
+                }
+                return friendly;
+            }
+            catch { return null; }
+        }
+
+        // --- Read address bar via UI Automation and return the host (domain) ---
+        private static string GetBrowserDomain(IntPtr hwnd)
+        {
+            try
+            {
+                var root = AutomationElement.FromHandle(hwnd);
+
+                // Chrome & Edge expose the address bar as an Edit named "Address and search bar"
+                // Firefox uses a similar pattern but with a different name
+                var editCondition = new PropertyCondition(
+                    AutomationElement.ControlTypeProperty, ControlType.Edit);
+                var edits = root.FindAll(TreeScope.Descendants, editCondition);
+
+                foreach (AutomationElement el in edits)
+                {
+                    try
+                    {
+                        string name = el.Current.Name ?? "";
+                        // Match Chrome/Edge and Firefox address bars
+                        if (!name.Contains("ddress") && !name.Contains("earch")) continue;
+
+                        var vp = el.GetCurrentPattern(ValuePattern.Pattern) as ValuePattern;
+                        if (vp == null) continue;
+
+                        string url = vp.Current.Value;
+                        return ExtractDomain(url);
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        // --- Strip a URL down to its bare hostname (no www.) ---
+        private static string ExtractDomain(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return null;
+            try
+            {
+                // Not a navigable URL (e.g. a search query or internal page)
+                if (url.StartsWith("chrome://") || url.StartsWith("about:") ||
+                    url.StartsWith("edge://")   || url.StartsWith("moz-extension://"))
+                    return url;
+
+                if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                    !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    url = "https://" + url;
+
+                string host = new Uri(url).Host;
+                if (host.StartsWith("www.", StringComparison.OrdinalIgnoreCase))
+                    host = host.Substring(4);
+                return host;
             }
             catch { return null; }
         }

@@ -65,10 +65,53 @@ namespace KeepSessionAlive
         {
             InitializeComponent();
 
+            notifyIcon1.Icon = BuildTrayIcon();
+
             _idleDisplayTimer = new System.Windows.Forms.Timer();
             _idleDisplayTimer.Interval = 1000;
             _idleDisplayTimer.Tick += IdleDisplayTimer_Tick;
             _idleDisplayTimer.Start();
+        }
+
+        // Programmatically build a small green circle icon for the tray
+        private static System.Drawing.Icon BuildTrayIcon()
+        {
+            using (var bmp = new System.Drawing.Bitmap(16, 16))
+            using (var g = System.Drawing.Graphics.FromImage(bmp))
+            {
+                g.Clear(System.Drawing.Color.Transparent);
+                g.FillEllipse(System.Drawing.Brushes.Green,  1, 1, 13, 13);
+                g.DrawEllipse(new System.Drawing.Pen(System.Drawing.Color.DarkGreen, 1), 1, 1, 13, 13);
+                IntPtr hIcon = bmp.GetHicon();
+                return System.Drawing.Icon.FromHandle(hIcon);
+            }
+        }
+
+        // --- Tray: minimize to tray on window minimize ---
+        private void Form1_Resize(object sender, EventArgs e)
+        {
+            if (WindowState == FormWindowState.Minimized)
+            {
+                Hide();
+                notifyIcon1.ShowBalloonTip(1000, "Keep Session Alive", "Running in the background.", System.Windows.Forms.ToolTipIcon.Info);
+            }
+        }
+
+        private void NotifyIcon1_DoubleClick(object sender, EventArgs e) => RestoreFromTray();
+
+        private void TrayMenuRestore_Click(object sender, EventArgs e) => RestoreFromTray();
+
+        private void TrayMenuExit_Click(object sender, EventArgs e)
+        {
+            notifyIcon1.Visible = false;
+            Application.Exit();
+        }
+
+        private void RestoreFromTray()
+        {
+            Show();
+            WindowState = FormWindowState.Normal;
+            Activate();
         }
 
         // --- Every-second timer: work/idle counters + app tracker ---

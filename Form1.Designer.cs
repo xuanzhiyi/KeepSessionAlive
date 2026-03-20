@@ -15,17 +15,22 @@ namespace KeepSessionAlive
 
         private void InitializeComponent()
         {
-            this.button1        = new System.Windows.Forms.Button();
-            this.buttonLog      = new System.Windows.Forms.Button();
-            this.textBox1       = new System.Windows.Forms.TextBox();
-            this.dataGridView1  = new System.Windows.Forms.DataGridView();
-            this.colApp         = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colTime        = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.labelWorkTitle = new System.Windows.Forms.Label();
-            this.labelWorkTime  = new System.Windows.Forms.Label();
-            this.labelIdleTitle = new System.Windows.Forms.Label();
-            this.labelIdleTime  = new System.Windows.Forms.Label();
+            this.button1           = new System.Windows.Forms.Button();
+            this.buttonLog         = new System.Windows.Forms.Button();
+            this.textBox1          = new System.Windows.Forms.TextBox();
+            this.dataGridView1     = new System.Windows.Forms.DataGridView();
+            this.colApp            = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colTime           = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.labelWorkTitle    = new System.Windows.Forms.Label();
+            this.labelWorkTime     = new System.Windows.Forms.Label();
+            this.labelIdleTitle    = new System.Windows.Forms.Label();
+            this.labelIdleTime     = new System.Windows.Forms.Label();
+            this.trayContextMenu   = new System.Windows.Forms.ContextMenuStrip();
+            this.trayMenuRestore   = new System.Windows.Forms.ToolStripMenuItem();
+            this.trayMenuExit      = new System.Windows.Forms.ToolStripMenuItem();
+            this.notifyIcon1       = new System.Windows.Forms.NotifyIcon();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView1)).BeginInit();
+            this.trayContextMenu.SuspendLayout();
             this.SuspendLayout();
             //
             // button1
@@ -123,6 +128,35 @@ namespace KeepSessionAlive
             this.labelIdleTime.Text = "0:00:00";
             this.labelIdleTime.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             //
+            // trayContextMenu
+            //
+            this.trayContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+                this.trayMenuRestore,
+                this.trayMenuExit });
+            this.trayContextMenu.Name = "trayContextMenu";
+            this.trayContextMenu.Size = new System.Drawing.Size(114, 48);
+            //
+            // trayMenuRestore
+            //
+            this.trayMenuRestore.Name = "trayMenuRestore";
+            this.trayMenuRestore.Size = new System.Drawing.Size(113, 22);
+            this.trayMenuRestore.Text = "Restore";
+            this.trayMenuRestore.Click += new System.EventHandler(this.TrayMenuRestore_Click);
+            //
+            // trayMenuExit
+            //
+            this.trayMenuExit.Name = "trayMenuExit";
+            this.trayMenuExit.Size = new System.Drawing.Size(113, 22);
+            this.trayMenuExit.Text = "Exit";
+            this.trayMenuExit.Click += new System.EventHandler(this.TrayMenuExit_Click);
+            //
+            // notifyIcon1
+            //
+            this.notifyIcon1.ContextMenuStrip = this.trayContextMenu;
+            this.notifyIcon1.Text = "Keep Session Alive";
+            this.notifyIcon1.Visible = true;
+            this.notifyIcon1.DoubleClick += new System.EventHandler(this.NotifyIcon1_DoubleClick);
+            //
             // Form1
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -139,7 +173,9 @@ namespace KeepSessionAlive
             this.MinimumSize = new System.Drawing.Size(511, 387);
             this.Name = "Form1";
             this.Text = "Keep Session Alive";
+            this.Resize += new System.EventHandler(this.Form1_Resize);
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView1)).EndInit();
+            this.trayContextMenu.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
         }
@@ -156,5 +192,9 @@ namespace KeepSessionAlive
         private System.Windows.Forms.Label labelWorkTime;
         private System.Windows.Forms.Label labelIdleTitle;
         private System.Windows.Forms.Label labelIdleTime;
+        private System.Windows.Forms.NotifyIcon notifyIcon1;
+        private System.Windows.Forms.ContextMenuStrip trayContextMenu;
+        private System.Windows.Forms.ToolStripMenuItem trayMenuRestore;
+        private System.Windows.Forms.ToolStripMenuItem trayMenuExit;
     }
 }

@@ -10,7 +10,7 @@ using WindowsInput;
 
 namespace KeepSessionAlive
 {
-    public partial class Form1 : Form
+    public partial class MainForm : Form
     {
         // --- P/Invoke ---
         [DllImport("user32.dll")]
@@ -64,7 +64,7 @@ namespace KeepSessionAlive
         private readonly Dictionary<string, long> _appSeconds = new Dictionary<string, long>();
         private readonly Dictionary<string, int>  _appRowMap  = new Dictionary<string, int>();
 
-        public Form1()
+        public MainForm()
         {
             InitializeComponent();
 
@@ -175,8 +175,8 @@ namespace KeepSessionAlive
             using (var g = System.Drawing.Graphics.FromImage(bmp))
             {
                 g.Clear(System.Drawing.Color.Transparent);
-                g.FillEllipse(System.Drawing.Brushes.Green,  1, 1, 13, 13);
-                g.DrawEllipse(new System.Drawing.Pen(System.Drawing.Color.DarkGreen, 1), 1, 1, 13, 13);
+                g.FillEllipse(System.Drawing.Brushes.Orange,  1, 1, 13, 13);
+                g.DrawEllipse(new System.Drawing.Pen(System.Drawing.Color.Black, 2), 1, 1, 13, 13);
                 IntPtr hIcon = bmp.GetHicon();
                 return System.Drawing.Icon.FromHandle(hIcon);
             }

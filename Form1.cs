@@ -1,12 +1,9 @@
 using System;
-using System.Diagnostics;
-using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using WindowsInput;
-using WindowsInput.Native;
 
 namespace KeepSessionAlive
 {
@@ -17,16 +14,7 @@ namespace KeepSessionAlive
         static extern void mouse_event(int dwFlags, int dx, int dy, int dwData, int dwExtraInfo);
 
         [DllImport("user32.dll")]
-        static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, uint dwExtraInfo);
-
-        [DllImport("user32.dll")]
         static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
-
-        [DllImport("user32.dll")]
-        static extern bool ClientToScreen(IntPtr hWnd, ref Point lpPoint);
-
-        [DllImport("user32.dll")]
-        internal static extern uint SendInput(uint nInputs, [MarshalAs(UnmanagedType.LPArray), In] INPUT[] pInputs, int cbSize);
 
         // --- Mouse constants ---
         private const int MOUSEEVENTF_MOVE       = 0x0001;
@@ -34,13 +22,14 @@ namespace KeepSessionAlive
         private const int MOUSEEVENTF_LEFTUP     = 0x0004;
         private const int MOUSEEVENTF_RIGHTDOWN  = 0x0008;
         private const int MOUSEEVENTF_RIGHTUP    = 0x0010;
-        private const int MOUSEEVENTF_MIDDLEDOWN = 0x0020;
-        private const int MOUSEEVENTF_MIDDLEUP   = 0x0040;
         private const int MOUSEEVENTF_ABSOLUTE   = 0x8000;
 
         // 5 minutes of idle before triggering; check every 10 seconds
         private const int IdleThresholdMs = 5 * 60 * 1000;
         private const int CheckIntervalMs = 10_000;
+
+        // Idle display: start counting after 10 s of inactivity
+        private const int IdleDisplayThresholdMs = 10_000;
 
         // --- Structs ---
         [StructLayout(LayoutKind.Sequential)]
@@ -50,37 +39,32 @@ namespace KeepSessionAlive
             public uint dwTime;
         }
 
-#pragma warning disable 649
-        internal struct INPUT
-        {
-            public UInt32 Type;
-            public MOUSEKEYBDHARDWAREINPUT Data;
-        }
-
-        [StructLayout(LayoutKind.Explicit)]
-        internal struct MOUSEKEYBDHARDWAREINPUT
-        {
-            [FieldOffset(0)]
-            public MOUSEINPUT Mouse;
-        }
-
-        internal struct MOUSEINPUT
-        {
-            public Int32 X;
-            public Int32 Y;
-            public UInt32 MouseData;
-            public UInt32 Flags;
-            public UInt32 Time;
-            public IntPtr ExtraInfo;
-        }
-#pragma warning restore 649
-
         // --- State ---
         private CancellationTokenSource _cts;
+        private System.Windows.Forms.Timer _idleDisplayTimer;
+        private long _totalIdleSeconds = 0;
 
         public Form1()
         {
             InitializeComponent();
+
+            _idleDisplayTimer = new System.Windows.Forms.Timer();
+            _idleDisplayTimer.Interval = 1000;
+            _idleDisplayTimer.Tick += IdleDisplayTimer_Tick;
+            _idleDisplayTimer.Start();
+        }
+
+        // --- Idle display timer: tick every second ---
+        private void IdleDisplayTimer_Tick(object sender, EventArgs e)
+        {
+            if (GetIdleTimeMs() >= IdleDisplayThresholdMs)
+            {
+                _totalIdleSeconds++;
+                long h = _totalIdleSeconds / 3600;
+                long m = (_totalIdleSeconds % 3600) / 60;
+                long s = _totalIdleSeconds % 60;
+                labelIdleTime.Text = $"{h}:{m:D2}:{s:D2}";
+            }
         }
 
         // --- Idle time helper ---
@@ -192,7 +176,7 @@ namespace KeepSessionAlive
             int cy = Screen.PrimaryScreen.Bounds.Height / 2;
 
             // Move to screen center
-            Cursor.Position = new Point(cx, cy);
+            Cursor.Position = new System.Drawing.Point(cx, cy);
             Thread.Sleep(400);
 
             // Right-click: opens a context menu without executing anything
@@ -201,7 +185,7 @@ namespace KeepSessionAlive
 
             // Move left 150px — context menus open to the right/below, so this
             // lands clearly outside the menu
-            Cursor.Position = new Point(cx - 150, cy);
+            Cursor.Position = new System.Drawing.Point(cx - 150, cy);
             Thread.Sleep(400);
 
             // Left-click: dismisses the context menu harmlessly
@@ -218,49 +202,6 @@ namespace KeepSessionAlive
                 return;
             }
             textBox1.AppendText(value);
-        }
-
-        // --- Open Citrix (unchanged) ---
-        private void button2_Click(object sender, EventArgs e)
-        {
-            var psi = new ProcessStartInfo
-            {
-                FileName = @"https://csgsf.oneadr.net/Citrix/VipProd_ExternalStoreWeb/",
-                UseShellExecute = true,
-            };
-            Process p = null;
-            try
-            {
-                p = Process.Start(psi);
-                p.WaitForInputIdle();
-                var window = p.MainWindowHandle;
-                Thread.Sleep(1000);
-                ClickOnPoint(window, new Point(300, 300));
-                p.WaitForExit();
-            }
-            catch { }
-            try
-            {
-                if (p.HasExited) { }
-            }
-            catch (InvalidOperationException) { }
-        }
-
-        public static void ClickOnPoint(IntPtr wndHandle, Point clientPoint)
-        {
-            ClientToScreen(wndHandle, ref clientPoint);
-            Cursor.Position = new Point(clientPoint.X, clientPoint.Y);
-
-            var inputMouseDown = new INPUT();
-            inputMouseDown.Type = 0;
-            inputMouseDown.Data.Mouse.Flags = 0x0002;
-
-            var inputMouseUp = new INPUT();
-            inputMouseUp.Type = 0;
-            inputMouseUp.Data.Mouse.Flags = 0x0004;
-
-            var inputs = new INPUT[] { inputMouseDown, inputMouseUp };
-            SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
         }
 
         private void runQuery()

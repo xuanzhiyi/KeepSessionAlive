@@ -1,4 +1,4 @@
-﻿namespace KeepSessionAlive
+namespace KeepSessionAlive
 {
     partial class Form1
     {
@@ -30,47 +30,56 @@
         {
             this.button1 = new System.Windows.Forms.Button();
             this.textBox1 = new System.Windows.Forms.TextBox();
-            this.button2 = new System.Windows.Forms.Button();
+            this.labelIdleTitle = new System.Windows.Forms.Label();
+            this.labelIdleTime = new System.Windows.Forms.Label();
             this.SuspendLayout();
-            // 
+            //
             // button1
-            // 
-            this.button1.Location = new System.Drawing.Point(28, 12);
+            //
+            this.button1.Location = new System.Drawing.Point(12, 12);
             this.button1.Name = "button1";
             this.button1.Size = new System.Drawing.Size(75, 23);
             this.button1.TabIndex = 0;
             this.button1.Text = "Start";
             this.button1.UseVisualStyleBackColor = true;
             this.button1.Click += new System.EventHandler(this.button1_Click);
-            // 
+            //
             // textBox1
-            // 
+            //
             this.textBox1.Location = new System.Drawing.Point(12, 41);
             this.textBox1.Multiline = true;
             this.textBox1.Name = "textBox1";
-            this.textBox1.Size = new System.Drawing.Size(471, 176);
+            this.textBox1.Size = new System.Drawing.Size(471, 150);
             this.textBox1.TabIndex = 1;
-            // 
-            // button2
-            // 
-            this.button2.Location = new System.Drawing.Point(171, 12);
-            this.button2.Name = "button2";
-            this.button2.Size = new System.Drawing.Size(75, 23);
-            this.button2.TabIndex = 2;
-            this.button2.Text = "Open citrix";
-            this.button2.UseVisualStyleBackColor = true;
-            this.button2.Click += new System.EventHandler(this.button2_Click);
-            // 
+            //
+            // labelIdleTitle
+            //
+            this.labelIdleTitle.Location = new System.Drawing.Point(12, 202);
+            this.labelIdleTitle.Name = "labelIdleTitle";
+            this.labelIdleTitle.Size = new System.Drawing.Size(471, 18);
+            this.labelIdleTitle.Text = "Total Idle Time";
+            this.labelIdleTitle.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            //
+            // labelIdleTime
+            //
+            this.labelIdleTime.Location = new System.Drawing.Point(12, 220);
+            this.labelIdleTime.Name = "labelIdleTime";
+            this.labelIdleTime.Size = new System.Drawing.Size(471, 85);
+            this.labelIdleTime.Font = new System.Drawing.Font("Segoe UI", 42F, System.Drawing.FontStyle.Bold);
+            this.labelIdleTime.Text = "0:00:00";
+            this.labelIdleTime.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            //
             // Form1
-            // 
+            //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(495, 229);
-            this.Controls.Add(this.button2);
+            this.ClientSize = new System.Drawing.Size(495, 318);
+            this.Controls.Add(this.labelIdleTime);
+            this.Controls.Add(this.labelIdleTitle);
             this.Controls.Add(this.textBox1);
             this.Controls.Add(this.button1);
             this.Name = "Form1";
-            this.Text = "Keep session alive";
+            this.Text = "Keep Session Alive";
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -80,7 +89,7 @@
 
         private System.Windows.Forms.Button button1;
         private System.Windows.Forms.TextBox textBox1;
-        private System.Windows.Forms.Button button2;
+        private System.Windows.Forms.Label labelIdleTitle;
+        private System.Windows.Forms.Label labelIdleTime;
     }
 }
-

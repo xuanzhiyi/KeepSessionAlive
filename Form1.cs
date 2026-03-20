@@ -20,6 +20,9 @@ namespace KeepSessionAlive
         static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
 
         [DllImport("user32.dll")]
+        static extern bool LockWorkStation();
+
+        [DllImport("user32.dll")]
         static extern IntPtr GetForegroundWindow();
 
         [DllImport("user32.dll")]
@@ -65,10 +68,121 @@ namespace KeepSessionAlive
         {
             InitializeComponent();
 
+            notifyIcon1.Icon = BuildTrayIcon();
+            ApplyDarkTheme();
+
             _idleDisplayTimer = new System.Windows.Forms.Timer();
             _idleDisplayTimer.Interval = 1000;
             _idleDisplayTimer.Tick += IdleDisplayTimer_Tick;
             _idleDisplayTimer.Start();
+        }
+
+        private void ApplyDarkTheme()
+        {
+            var bg      = System.Drawing.Color.FromArgb(28, 28, 28);
+            var surface = System.Drawing.Color.FromArgb(45, 45, 45);
+            var border  = System.Drawing.Color.FromArgb(70, 70, 70);
+            var orange  = System.Drawing.Color.FromArgb(255, 140, 0);
+            var text    = System.Drawing.Color.FromArgb(220, 220, 220);
+            var hover   = System.Drawing.Color.FromArgb(65, 65, 65);
+
+            // Form
+            this.BackColor = bg;
+            this.ForeColor = text;
+
+            // Buttons
+            foreach (var btn in new[] { button1, buttonLog, buttonLock })
+            {
+                btn.BackColor = surface;
+                btn.ForeColor = orange;
+                btn.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+                btn.FlatAppearance.BorderColor = orange;
+                btn.FlatAppearance.MouseOverBackColor = hover;
+                btn.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(85, 85, 85);
+            }
+
+            // Log text box
+            textBox1.BackColor = surface;
+            textBox1.ForeColor = text;
+            textBox1.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+
+            // DataGridView
+            dataGridView1.BackgroundColor = bg;
+            dataGridView1.GridColor = border;
+            dataGridView1.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            dataGridView1.EnableHeadersVisualStyles = false;
+
+            dataGridView1.DefaultCellStyle.BackColor          = surface;
+            dataGridView1.DefaultCellStyle.ForeColor          = text;
+            dataGridView1.DefaultCellStyle.SelectionBackColor = orange;
+            dataGridView1.DefaultCellStyle.SelectionForeColor = System.Drawing.Color.Black;
+
+            dataGridView1.AlternatingRowsDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(38, 38, 38);
+            dataGridView1.AlternatingRowsDefaultCellStyle.ForeColor = text;
+
+            dataGridView1.ColumnHeadersDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(35, 35, 35);
+            dataGridView1.ColumnHeadersDefaultCellStyle.ForeColor = orange;
+            dataGridView1.ColumnHeadersDefaultCellStyle.Font =
+                new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+
+            // Section title labels
+            labelWorkTitle.ForeColor = orange;
+            labelIdleTitle.ForeColor = orange;
+
+            // Working time: brighter green for dark background
+            labelWorkTime.ForeColor = System.Drawing.Color.LimeGreen;
+            // Idle time: goldenrod already visible on dark bg — no change needed
+
+            // Tray context menu
+            trayContextMenu.BackColor = surface;
+            trayContextMenu.ForeColor = text;
+            trayMenuRestore.BackColor = surface;
+            trayMenuRestore.ForeColor = text;
+            trayMenuExit.BackColor    = surface;
+            trayMenuExit.ForeColor    = text;
+        }
+
+        // Programmatically build a small green circle icon for the tray
+        private static System.Drawing.Icon BuildTrayIcon()
+        {
+            using (var bmp = new System.Drawing.Bitmap(16, 16))
+            using (var g = System.Drawing.Graphics.FromImage(bmp))
+            {
+                g.Clear(System.Drawing.Color.Transparent);
+                g.FillEllipse(System.Drawing.Brushes.Green,  1, 1, 13, 13);
+                g.DrawEllipse(new System.Drawing.Pen(System.Drawing.Color.DarkGreen, 1), 1, 1, 13, 13);
+                IntPtr hIcon = bmp.GetHicon();
+                return System.Drawing.Icon.FromHandle(hIcon);
+            }
+        }
+
+        // --- Tray: minimize to tray on window minimize ---
+        private void Form1_Resize(object sender, EventArgs e)
+        {
+            if (WindowState == FormWindowState.Minimized)
+            {
+                Hide();
+                notifyIcon1.ShowBalloonTip(1000, "Keep Session Alive", "Running in the background.", System.Windows.Forms.ToolTipIcon.Info);
+            }
+        }
+
+        private void NotifyIcon1_DoubleClick(object sender, EventArgs e) => RestoreFromTray();
+
+        private void TrayMenuRestore_Click(object sender, EventArgs e) => RestoreFromTray();
+
+        private void TrayMenuExit_Click(object sender, EventArgs e)
+        {
+            notifyIcon1.Visible = false;
+            Application.Exit();
+        }
+
+        private void buttonLock_Click(object sender, EventArgs e) => LockWorkStation();
+
+        private void RestoreFromTray()
+        {
+            Show();
+            WindowState = FormWindowState.Normal;
+            Activate();
         }
 
         // --- Every-second timer: work/idle counters + app tracker ---
@@ -279,13 +393,13 @@ namespace KeepSessionAlive
             {
                 _cts.Cancel();
                 _cts = null;
-                button1.Text = "Start";
+                button1.Text = "Always online : Off";
                 AppendTextBox($"{DateTime.Now:HH:mm:ss} - Stopped.\r\n");
                 return;
             }
 
             _cts = new CancellationTokenSource();
-            button1.Text = "Stop";
+            button1.Text = "Always online : On";
             AppendTextBox($"{DateTime.Now:HH:mm:ss} - Started. Waiting for {IdleThresholdMs / 60000} min idle...\r\n");
 
             var token = _cts.Token;
@@ -295,7 +409,7 @@ namespace KeepSessionAlive
             {
                 Invoke(new Action(() =>
                 {
-                    button1.Text = "Start";
+                    button1.Text = "Always online : Off";
                     _cts = null;
                 }));
             }

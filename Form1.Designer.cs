@@ -32,15 +32,15 @@ namespace KeepSessionAlive
             //
             this.button1.Location = new System.Drawing.Point(12, 12);
             this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(75, 23);
+            this.button1.Size = new System.Drawing.Size(140, 23);
             this.button1.TabIndex = 0;
-            this.button1.Text = "Start";
+            this.button1.Text = "Always online : Off";
             this.button1.UseVisualStyleBackColor = true;
             this.button1.Click += new System.EventHandler(this.button1_Click);
             //
             // buttonLog
             //
-            this.buttonLog.Location = new System.Drawing.Point(95, 12);
+            this.buttonLog.Location = new System.Drawing.Point(158, 12);
             this.buttonLog.Name = "buttonLog";
             this.buttonLog.Size = new System.Drawing.Size(75, 23);
             this.buttonLog.TabIndex = 1;

@@ -279,13 +279,13 @@ namespace KeepSessionAlive
             {
                 _cts.Cancel();
                 _cts = null;
-                button1.Text = "Start";
+                button1.Text = "Always online : Off";
                 AppendTextBox($"{DateTime.Now:HH:mm:ss} - Stopped.\r\n");
                 return;
             }
 
             _cts = new CancellationTokenSource();
-            button1.Text = "Stop";
+            button1.Text = "Always online : On";
             AppendTextBox($"{DateTime.Now:HH:mm:ss} - Started. Waiting for {IdleThresholdMs / 60000} min idle...\r\n");
 
             var token = _cts.Token;
@@ -295,7 +295,7 @@ namespace KeepSessionAlive
             {
                 Invoke(new Action(() =>
                 {
-                    button1.Text = "Start";
+                    button1.Text = "Always online : Off";
                     _cts = null;
                 }));
             }

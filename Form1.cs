@@ -54,6 +54,7 @@ namespace KeepSessionAlive
         // --- State ---
         private CancellationTokenSource _cts;
         private System.Windows.Forms.Timer _idleDisplayTimer;
+        private long _totalWorkSeconds = 0;
         private long _totalIdleSeconds = 0;
 
         // App tracking: name -> accumulated seconds, name -> grid row index
@@ -70,27 +71,33 @@ namespace KeepSessionAlive
             _idleDisplayTimer.Start();
         }
 
-        // --- Every-second timer: idle counter + app tracker ---
+        // --- Every-second timer: work/idle counters + app tracker ---
         private void IdleDisplayTimer_Tick(object sender, EventArgs e)
         {
             uint idleMs = GetIdleTimeMs();
 
             if (idleMs >= IdleDisplayThresholdMs)
             {
-                // Accumulate idle time and update the big display
                 _totalIdleSeconds++;
-                long h = _totalIdleSeconds / 3600;
-                long m = (_totalIdleSeconds % 3600) / 60;
-                long s = _totalIdleSeconds % 60;
-                labelIdleTime.Text = $"{h}:{m:D2}:{s:D2}";
+                labelIdleTime.Text = FormatTime(_totalIdleSeconds);
             }
             else
             {
-                // User is active — record time against the foreground app
+                _totalWorkSeconds++;
+                labelWorkTime.Text = FormatTime(_totalWorkSeconds);
+
                 string app = GetForegroundAppName();
                 if (app != null)
                     RecordAppSecond(app);
             }
+        }
+
+        private static string FormatTime(long totalSeconds)
+        {
+            long h = totalSeconds / 3600;
+            long m = (totalSeconds % 3600) / 60;
+            long s = totalSeconds % 60;
+            return $"{h}:{m:D2}:{s:D2}";
         }
 
         // Browsers whose active tab URL we can read via UI Automation
@@ -203,10 +210,12 @@ namespace KeepSessionAlive
             textBox1.Visible = show;
 
             int delta = show ? LogAreaHeight : -LogAreaHeight;
-            dataGridView1.Top   += delta;
-            labelIdleTitle.Top  += delta;
-            labelIdleTime.Top   += delta;
-            this.Height         += delta;
+            dataGridView1.Top  += delta;
+            labelWorkTitle.Top += delta;
+            labelWorkTime.Top  += delta;
+            labelIdleTitle.Top += delta;
+            labelIdleTime.Top  += delta;
+            this.Height        += delta;
 
             buttonLog.Text = show ? "Hide Log" : "Log";
         }

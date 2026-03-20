@@ -15,14 +15,16 @@ namespace KeepSessionAlive
 
         private void InitializeComponent()
         {
-            this.button1 = new System.Windows.Forms.Button();
-            this.buttonLog = new System.Windows.Forms.Button();
-            this.textBox1 = new System.Windows.Forms.TextBox();
-            this.dataGridView1 = new System.Windows.Forms.DataGridView();
-            this.colApp = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colTime = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.button1        = new System.Windows.Forms.Button();
+            this.buttonLog      = new System.Windows.Forms.Button();
+            this.textBox1       = new System.Windows.Forms.TextBox();
+            this.dataGridView1  = new System.Windows.Forms.DataGridView();
+            this.colApp         = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colTime        = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.labelWorkTitle = new System.Windows.Forms.Label();
+            this.labelWorkTime  = new System.Windows.Forms.Label();
             this.labelIdleTitle = new System.Windows.Forms.Label();
-            this.labelIdleTime = new System.Windows.Forms.Label();
+            this.labelIdleTime  = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView1)).BeginInit();
             this.SuspendLayout();
             //
@@ -46,7 +48,7 @@ namespace KeepSessionAlive
             this.buttonLog.UseVisualStyleBackColor = true;
             this.buttonLog.Click += new System.EventHandler(this.buttonLog_Click);
             //
-            // textBox1 — hidden by default, shown when Log is toggled
+            // textBox1 — hidden by default, toggled by buttonLog
             //
             this.textBox1.Location = new System.Drawing.Point(12, 41);
             this.textBox1.Multiline = true;
@@ -85,20 +87,39 @@ namespace KeepSessionAlive
             this.colTime.ReadOnly = true;
             this.colTime.Width = 90;
             //
-            // labelIdleTitle
+            // labelWorkTitle — left side
             //
-            this.labelIdleTitle.Location = new System.Drawing.Point(12, 232);
+            this.labelWorkTitle.Location = new System.Drawing.Point(12, 232);
+            this.labelWorkTitle.Name = "labelWorkTitle";
+            this.labelWorkTitle.Size = new System.Drawing.Size(230, 18);
+            this.labelWorkTitle.Text = "Working Time";
+            this.labelWorkTitle.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            //
+            // labelWorkTime — left side, green
+            //
+            this.labelWorkTime.Location = new System.Drawing.Point(12, 250);
+            this.labelWorkTime.Name = "labelWorkTime";
+            this.labelWorkTime.Size = new System.Drawing.Size(230, 85);
+            this.labelWorkTime.Font = new System.Drawing.Font("Segoe UI", 36F, System.Drawing.FontStyle.Bold);
+            this.labelWorkTime.ForeColor = System.Drawing.Color.Green;
+            this.labelWorkTime.Text = "0:00:00";
+            this.labelWorkTime.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            //
+            // labelIdleTitle — right side
+            //
+            this.labelIdleTitle.Location = new System.Drawing.Point(253, 232);
             this.labelIdleTitle.Name = "labelIdleTitle";
-            this.labelIdleTitle.Size = new System.Drawing.Size(471, 18);
-            this.labelIdleTitle.Text = "Total Idle Time";
+            this.labelIdleTitle.Size = new System.Drawing.Size(230, 18);
+            this.labelIdleTitle.Text = "Idle Time";
             this.labelIdleTitle.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             //
-            // labelIdleTime
+            // labelIdleTime — right side, goldenrod
             //
-            this.labelIdleTime.Location = new System.Drawing.Point(12, 250);
+            this.labelIdleTime.Location = new System.Drawing.Point(253, 250);
             this.labelIdleTime.Name = "labelIdleTime";
-            this.labelIdleTime.Size = new System.Drawing.Size(471, 85);
-            this.labelIdleTime.Font = new System.Drawing.Font("Segoe UI", 42F, System.Drawing.FontStyle.Bold);
+            this.labelIdleTime.Size = new System.Drawing.Size(230, 85);
+            this.labelIdleTime.Font = new System.Drawing.Font("Segoe UI", 36F, System.Drawing.FontStyle.Bold);
+            this.labelIdleTime.ForeColor = System.Drawing.Color.Goldenrod;
             this.labelIdleTime.Text = "0:00:00";
             this.labelIdleTime.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             //
@@ -109,6 +130,8 @@ namespace KeepSessionAlive
             this.ClientSize = new System.Drawing.Size(495, 348);
             this.Controls.Add(this.labelIdleTime);
             this.Controls.Add(this.labelIdleTitle);
+            this.Controls.Add(this.labelWorkTime);
+            this.Controls.Add(this.labelWorkTitle);
             this.Controls.Add(this.dataGridView1);
             this.Controls.Add(this.textBox1);
             this.Controls.Add(this.buttonLog);
@@ -129,6 +152,8 @@ namespace KeepSessionAlive
         private System.Windows.Forms.DataGridView dataGridView1;
         private System.Windows.Forms.DataGridViewTextBoxColumn colApp;
         private System.Windows.Forms.DataGridViewTextBoxColumn colTime;
+        private System.Windows.Forms.Label labelWorkTitle;
+        private System.Windows.Forms.Label labelWorkTime;
         private System.Windows.Forms.Label labelIdleTitle;
         private System.Windows.Forms.Label labelIdleTime;
     }

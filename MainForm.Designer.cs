@@ -19,6 +19,7 @@ namespace KeepSessionAlive
             this.dataGridView1     = new System.Windows.Forms.DataGridView();
             this.colApp            = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colTime           = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colBar            = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.labelWorkTitle    = new System.Windows.Forms.Label();
             this.labelWorkTime     = new System.Windows.Forms.Label();
             this.labelIdleTitle    = new System.Windows.Forms.Label();
@@ -101,12 +102,15 @@ namespace KeepSessionAlive
             this.dataGridView1.AllowUserToDeleteRows = false;
             this.dataGridView1.AllowUserToResizeRows = false;
             this.dataGridView1.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dataGridView1.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] { this.colApp, this.colTime });
+            this.dataGridView1.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] { this.colApp, this.colTime, this.colBar });
             this.dataGridView1.Location = new System.Drawing.Point(12, 41);
             this.dataGridView1.Name = "dataGridView1";
             this.dataGridView1.ReadOnly = true;
             this.dataGridView1.RowHeadersVisible = false;
             this.dataGridView1.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+            this.dataGridView1.ClearSelection();
+            this.dataGridView1.DefaultCellStyle.SelectionBackColor = this.dataGridView1.DefaultCellStyle.BackColor;
+            this.dataGridView1.DefaultCellStyle.SelectionForeColor = this.dataGridView1.DefaultCellStyle.ForeColor;
             this.dataGridView1.Size = new System.Drawing.Size(471, 220);
             this.dataGridView1.TabIndex = 0;
             //
@@ -123,6 +127,13 @@ namespace KeepSessionAlive
             this.colTime.Name = "colTime";
             this.colTime.ReadOnly = true;
             this.colTime.Width = 90;
+            //
+            // colBar
+            //
+            this.colBar.HeaderText = "";
+            this.colBar.Name = "colBar";
+            this.colBar.ReadOnly = true;
+            this.colBar.Width = 120;
             //
             // labelWorkTitle
             //
@@ -176,11 +187,15 @@ namespace KeepSessionAlive
             this.statusRecord       = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusSnap         = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusSpacer       = new System.Windows.Forms.ToolStripStatusLabel();
+            this.statusCapture     = new System.Windows.Forms.ToolStripStatusLabel();
+            this.statusExportPpt   = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
                 this.statusOnline,
                 this.statusLog,
                 this.statusLock,
                 this.statusSnap,
+                this.statusCapture,
+                this.statusExportPpt,
                 this.statusSpacer,
                 this.statusRecord });
             this.statusStrip1.Name = "statusStrip1";
@@ -234,6 +249,29 @@ namespace KeepSessionAlive
             this.statusSnap.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
             this.statusSnap.Click += new System.EventHandler(this.statusSnap_Click);
             //
+            // statusCapture — screen region capture
+            //
+            this.statusCapture.Name = "statusCapture";
+            this.statusCapture.Text = "\uf030";
+            this.statusCapture.Font = MainForm.FaFont(14F);
+            this.statusCapture.Padding = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.statusCapture.ToolTipText = "Capture Screen Region";
+            this.statusCapture.IsLink = true;
+            this.statusCapture.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
+            this.statusCapture.Click += new System.EventHandler(this.statusCapture_Click);
+            //
+            // statusExportPpt — export captures to PowerPoint
+            //
+            this.statusExportPpt.Name = "statusExportPpt";
+            this.statusExportPpt.Text = "\uf1c4";
+            this.statusExportPpt.Font = MainForm.FaFont(14F);
+            this.statusExportPpt.Padding = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.statusExportPpt.ToolTipText = "Export Captures to PowerPoint";
+            this.statusExportPpt.IsLink = true;
+            this.statusExportPpt.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
+            this.statusExportPpt.Visible = false;
+            this.statusExportPpt.Click += new System.EventHandler(this.statusExportPpt_Click);
+            //
             // statusSpacer — pushes record to the right
             //
             this.statusSpacer.Name = "statusSpacer";
@@ -258,12 +296,16 @@ namespace KeepSessionAlive
             this.trayMenuStopRec    = new System.Windows.Forms.ToolStripMenuItem();
             this.trayMenuLock       = new System.Windows.Forms.ToolStripMenuItem();
             this.trayMenuSnap       = new System.Windows.Forms.ToolStripMenuItem();
+            this.trayMenuCapture    = new System.Windows.Forms.ToolStripMenuItem();
+            this.trayMenuExportPpt  = new System.Windows.Forms.ToolStripMenuItem();
             this.traySep1           = new System.Windows.Forms.ToolStripSeparator();
             this.trayContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
                 this.trayMenuOnline,
                 this.trayMenuRecord,
                 this.trayMenuStopRec,
                 this.trayMenuSnap,
+                this.trayMenuCapture,
+                this.trayMenuExportPpt,
                 this.trayMenuLock,
                 this.traySep1,
                 this.trayMenuRestore,
@@ -295,6 +337,19 @@ namespace KeepSessionAlive
             this.trayMenuSnap.Name = "trayMenuSnap";
             this.trayMenuSnap.Text = "Snap Windows";
             this.trayMenuSnap.Click += new System.EventHandler(this.TrayMenuSnap_Click);
+            //
+            // trayMenuCapture
+            //
+            this.trayMenuCapture.Name = "trayMenuCapture";
+            this.trayMenuCapture.Text = "Capture Region";
+            this.trayMenuCapture.Click += new System.EventHandler(this.TrayMenuCapture_Click);
+            //
+            // trayMenuExportPpt
+            //
+            this.trayMenuExportPpt.Name = "trayMenuExportPpt";
+            this.trayMenuExportPpt.Text = "Export to PowerPoint";
+            this.trayMenuExportPpt.Visible = false;
+            this.trayMenuExportPpt.Click += new System.EventHandler(this.TrayMenuExportPpt_Click);
             //
             // trayMenuLock
             //
@@ -358,6 +413,7 @@ namespace KeepSessionAlive
         private System.Windows.Forms.DataGridView dataGridView1;
         private System.Windows.Forms.DataGridViewTextBoxColumn colApp;
         private System.Windows.Forms.DataGridViewTextBoxColumn colTime;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colBar;
         private System.Windows.Forms.Label labelWorkTitle;
         private System.Windows.Forms.Label labelWorkTime;
         private System.Windows.Forms.Label labelIdleTitle;
@@ -369,6 +425,8 @@ namespace KeepSessionAlive
         private System.Windows.Forms.ToolStripMenuItem trayMenuStopRec;
         private System.Windows.Forms.ToolStripMenuItem trayMenuLock;
         private System.Windows.Forms.ToolStripMenuItem trayMenuSnap;
+        private System.Windows.Forms.ToolStripMenuItem trayMenuCapture;
+        private System.Windows.Forms.ToolStripMenuItem trayMenuExportPpt;
         private System.Windows.Forms.ToolStripSeparator traySep1;
         private System.Windows.Forms.ToolStripMenuItem trayMenuRestore;
         private System.Windows.Forms.ToolStripMenuItem trayMenuExit;
@@ -382,6 +440,8 @@ namespace KeepSessionAlive
         private System.Windows.Forms.ToolStripStatusLabel statusOnline;
         private System.Windows.Forms.ToolStripStatusLabel statusSnap;
         private System.Windows.Forms.ToolStripStatusLabel statusSpacer;
+        private System.Windows.Forms.ToolStripStatusLabel statusCapture;
+        private System.Windows.Forms.ToolStripStatusLabel statusExportPpt;
         private System.Windows.Forms.ToolStripStatusLabel statusRecord;
     }
 }

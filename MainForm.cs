@@ -115,11 +115,15 @@ namespace KeepSessionAlive
         // App tracking: name -> accumulated seconds, name -> grid row index
         private readonly Dictionary<string, long> _appSeconds = new Dictionary<string, long>();
         private readonly Dictionary<string, int>  _appRowMap  = new Dictionary<string, int>();
+        private int _barRefreshCounter;
 
         // --- Recording state ---
         private Recorder _recorder;
         private string   _tempVideoPath;
         private bool     _isRecording;
+
+        // --- Screen capture state ---
+        private readonly List<Bitmap> _captures = new List<Bitmap>();
 
         // --- FontAwesome ---
         private static PrivateFontCollection _faFonts;
@@ -170,6 +174,8 @@ namespace KeepSessionAlive
             _idleDisplayTimer.Interval = 1000;
             _idleDisplayTimer.Tick += IdleDisplayTimer_Tick;
             _idleDisplayTimer.Start();
+
+            dataGridView1.CellPainting += DataGridView1_CellPainting;
         }
 
         private void ApplyDarkTheme()
@@ -213,11 +219,13 @@ namespace KeepSessionAlive
 
             dataGridView1.DefaultCellStyle.BackColor          = surface;
             dataGridView1.DefaultCellStyle.ForeColor          = text;
-            dataGridView1.DefaultCellStyle.SelectionBackColor = orange;
-            dataGridView1.DefaultCellStyle.SelectionForeColor = System.Drawing.Color.Black;
+            dataGridView1.DefaultCellStyle.SelectionBackColor = surface;
+            dataGridView1.DefaultCellStyle.SelectionForeColor = text;
 
             dataGridView1.AlternatingRowsDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(38, 38, 38);
             dataGridView1.AlternatingRowsDefaultCellStyle.ForeColor = text;
+            dataGridView1.AlternatingRowsDefaultCellStyle.SelectionBackColor = System.Drawing.Color.FromArgb(38, 38, 38);
+            dataGridView1.AlternatingRowsDefaultCellStyle.SelectionForeColor = text;
 
             dataGridView1.ColumnHeadersDefaultCellStyle.BackColor          = System.Drawing.Color.FromArgb(35, 35, 35);
             dataGridView1.ColumnHeadersDefaultCellStyle.ForeColor          = orange;
@@ -253,6 +261,16 @@ namespace KeepSessionAlive
             statusSnap.ForeColor      = orange;
             statusSnap.LinkColor      = orange;
             statusSnap.ActiveLinkColor = System.Drawing.Color.White;
+            statusCapture.ForeColor      = orange;
+            statusCapture.LinkColor      = orange;
+            statusCapture.ActiveLinkColor = System.Drawing.Color.White;
+            statusExportPpt.ForeColor      = orange;
+            statusExportPpt.LinkColor      = orange;
+            statusExportPpt.ActiveLinkColor = System.Drawing.Color.White;
+            trayMenuCapture.BackColor  = surface;
+            trayMenuCapture.ForeColor  = text;
+            trayMenuExportPpt.BackColor = surface;
+            trayMenuExportPpt.ForeColor = text;
         }
 
         // ── Custom title bar drag ──────────────────────────────────────────────
@@ -360,6 +378,15 @@ namespace KeepSessionAlive
                 string app = GetForegroundAppName();
                 if (app != null)
                     RecordAppSecond(app);
+            }
+
+            // Refresh bar chart every 20 seconds, only when visible
+            _barRefreshCounter++;
+            if (_barRefreshCounter >= 20)
+            {
+                _barRefreshCounter = 0;
+                if (this.Visible && this.WindowState != FormWindowState.Minimized)
+                    dataGridView1.InvalidateColumn(dataGridView1.Columns["colBar"].Index);
             }
         }
 
@@ -472,6 +499,48 @@ namespace KeepSessionAlive
             long m = (total % 3600) / 60;
             long s = total % 60;
             dataGridView1.Rows[_appRowMap[appName]].Cells["colTime"].Value = $"{h}:{m:D2}:{s:D2}";
+        }
+
+        // --- Bar chart cell painting ---
+        private void DataGridView1_CellPainting(object sender, DataGridViewCellPaintingEventArgs e)
+        {
+            // Only paint data rows in the colBar column
+            if (e.RowIndex < 0 || e.ColumnIndex != dataGridView1.Columns["colBar"].Index)
+                return;
+
+            e.PaintBackground(e.ClipBounds, true);
+
+            // Find the max seconds across all tracked apps
+            long maxSeconds = 0;
+            foreach (var val in _appSeconds.Values)
+                if (val > maxSeconds) maxSeconds = val;
+
+            if (maxSeconds > 0)
+            {
+                // Get this row's app name and its seconds
+                string appName = dataGridView1.Rows[e.RowIndex].Cells["colApp"].Value as string;
+                long seconds = 0;
+                if (appName != null && _appSeconds.ContainsKey(appName))
+                    seconds = _appSeconds[appName];
+
+                if (seconds > 0)
+                {
+                    double ratio = (double)seconds / maxSeconds;
+                    int barWidth = (int)((e.CellBounds.Width - 6) * ratio);
+                    int barHeight = e.CellBounds.Height - 6;
+
+                    var barRect = new Rectangle(
+                        e.CellBounds.Left + 3,
+                        e.CellBounds.Top + 3,
+                        barWidth,
+                        barHeight);
+
+                    using (var brush = new SolidBrush(Color.FromArgb(255, 140, 0)))
+                        e.Graphics.FillRectangle(brush, barRect);
+                }
+            }
+
+            e.Handled = true;
         }
 
         // --- Log toggle (status strip) ---
@@ -802,6 +871,171 @@ namespace KeepSessionAlive
             _tempVideoPath = null;
         }
 
+        // ── Screen capture → PowerPoint ─────────────────────────────────────
+
+        private void statusCapture_Click(object sender, EventArgs e) => StartRegionCapture();
+        private void TrayMenuCapture_Click(object sender, EventArgs e) => StartRegionCapture();
+        private void statusExportPpt_Click(object sender, EventArgs e) => ExportCapturesToPptx();
+        private void TrayMenuExportPpt_Click(object sender, EventArgs e) => ExportCapturesToPptx();
+
+        private void StartRegionCapture()
+        {
+            // Brief delay so the app window can hide if desired
+            this.WindowState = FormWindowState.Minimized;
+            System.Threading.Thread.Sleep(300);
+
+            // Take the screenshot BEFORE creating the overlay form
+            var allBounds = SystemInformation.VirtualScreen;
+            var bgBmp = new Bitmap(allBounds.Width, allBounds.Height);
+            using (var g = Graphics.FromImage(bgBmp))
+                g.CopyFromScreen(allBounds.Location, Point.Empty, allBounds.Size);
+
+            // Dim the background
+            var dimBmp = new Bitmap(bgBmp);
+            using (var g = Graphics.FromImage(dimBmp))
+            using (var brush = new SolidBrush(Color.FromArgb(100, 0, 0, 0)))
+                g.FillRectangle(brush, 0, 0, dimBmp.Width, dimBmp.Height);
+
+            using (var overlay = new Form())
+            {
+                overlay.FormBorderStyle = FormBorderStyle.None;
+                overlay.StartPosition = FormStartPosition.Manual;
+                overlay.Bounds = allBounds;
+                overlay.TopMost = true;
+                overlay.ShowInTaskbar = false;
+                overlay.Cursor = Cursors.Cross;
+                overlay.BackgroundImage = dimBmp;
+
+                // Enable double buffering to prevent flicker
+                overlay.GetType().GetProperty("DoubleBuffered",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .SetValue(overlay, true, null);
+
+                Point selStart = Point.Empty;
+                Rectangle selRect = Rectangle.Empty;
+                bool selecting = false;
+
+                overlay.MouseDown += (s, ev) =>
+                {
+                    if (ev.Button == MouseButtons.Left)
+                    {
+                        selecting = true;
+                        selStart = ev.Location;
+                        selRect = Rectangle.Empty;
+                    }
+                };
+
+                overlay.MouseMove += (s, ev) =>
+                {
+                    if (selecting)
+                    {
+                        int x = Math.Min(selStart.X, ev.X);
+                        int y = Math.Min(selStart.Y, ev.Y);
+                        int w = Math.Abs(ev.X - selStart.X);
+                        int h = Math.Abs(ev.Y - selStart.Y);
+                        selRect = new Rectangle(x, y, w, h);
+                        overlay.Invalidate();
+                    }
+                };
+
+                overlay.Paint += (s, ev) =>
+                {
+                    if (selRect.Width > 0 && selRect.Height > 0)
+                    {
+                        // Show the original (undimmed) image inside the selection
+                        ev.Graphics.DrawImage(bgBmp, selRect, selRect, GraphicsUnit.Pixel);
+                        // Draw selection border
+                        using (var pen = new Pen(Color.FromArgb(255, 140, 0), 2))
+                            ev.Graphics.DrawRectangle(pen, selRect);
+                    }
+                };
+
+                overlay.MouseUp += (s, ev) =>
+                {
+                    if (selecting && selRect.Width > 5 && selRect.Height > 5)
+                    {
+                        // Crop from the original screenshot
+                        var capture = new Bitmap(selRect.Width, selRect.Height);
+                        using (var g = Graphics.FromImage(capture))
+                            g.DrawImage(bgBmp, 0, 0, selRect, GraphicsUnit.Pixel);
+
+                        _captures.Add(capture);
+                        UpdateCaptureCount();
+                        AppendTextBox($"{DateTime.Now:HH:mm:ss} - Captured region ({selRect.Width}x{selRect.Height}). Total: {_captures.Count}\r\n");
+                    }
+                    selecting = false;
+                    overlay.Close();
+                };
+
+                overlay.KeyDown += (s, ev) =>
+                {
+                    if (ev.KeyCode == Keys.Escape)
+                        overlay.Close();
+                };
+
+                overlay.ShowDialog();
+
+                // Clean up background bitmaps
+                bgBmp.Dispose();
+                dimBmp.Dispose();
+            }
+
+            // Restore window
+            this.Show();
+            this.WindowState = FormWindowState.Normal;
+            this.Activate();
+        }
+
+        private void UpdateCaptureCount()
+        {
+            bool hasCaptures = _captures.Count > 0;
+            statusCapture.Text = hasCaptures ? $"\uf030 {_captures.Count}" : "\uf030";
+            statusCapture.ToolTipText = hasCaptures
+                ? $"Capture Screen Region ({_captures.Count} captured)"
+                : "Capture Screen Region";
+            statusExportPpt.Visible = hasCaptures;
+            statusExportPpt.ToolTipText = $"Export {_captures.Count} Capture(s) to PowerPoint";
+            trayMenuExportPpt.Visible = hasCaptures;
+            trayMenuExportPpt.Text = hasCaptures
+                ? $"Export to PowerPoint ({_captures.Count})"
+                : "Export to PowerPoint";
+        }
+
+        private void ExportCapturesToPptx()
+        {
+            if (_captures.Count == 0)
+            {
+                AppendTextBox($"{DateTime.Now:HH:mm:ss} - No captures to export.\r\n");
+                return;
+            }
+
+            using (var dlg = new SaveFileDialog())
+            {
+                dlg.Title = "Export Captures to PowerPoint";
+                dlg.Filter = "PowerPoint|*.pptx";
+                dlg.FileName = $"Captures_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.pptx";
+                dlg.DefaultExt = "pptx";
+
+                if (dlg.ShowDialog() != DialogResult.OK) return;
+
+                try
+                {
+                    PptxExporter.Create(dlg.FileName, _captures);
+                    AppendTextBox($"{DateTime.Now:HH:mm:ss} - Exported {_captures.Count} slides to {dlg.FileName}\r\n");
+
+                    // Clear captures
+                    foreach (var bmp in _captures) bmp.Dispose();
+                    _captures.Clear();
+                    UpdateCaptureCount();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to export: {ex.Message}", "Error",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             if (_isRecording)
@@ -810,6 +1044,10 @@ namespace KeepSessionAlive
                 CleanupRecorder();
                 try { if (_tempVideoPath != null) File.Delete(_tempVideoPath); } catch { }
             }
+            // Clean up captures
+            foreach (var bmp in _captures) bmp.Dispose();
+            _captures.Clear();
+
             base.OnFormClosing(e);
         }
 

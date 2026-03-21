@@ -182,41 +182,42 @@ namespace KeepSessionAlive
                 this.statusSpacer,
                 this.statusRecord });
             this.statusStrip1.Name = "statusStrip1";
-            this.statusStrip1.Size = new System.Drawing.Size(495, 32);
+            this.statusStrip1.Size = new System.Drawing.Size(495, 40);
             this.statusStrip1.SizingGrip = false;
+            this.statusStrip1.ShowItemToolTips = true;
             //
-            // statusOnline
+            // statusOnline — FontAwesome power icon toggle
             //
             this.statusOnline.Name = "statusOnline";
-            this.statusOnline.Text = "\u25CF";
-            this.statusOnline.Font = new System.Drawing.Font("Segoe UI", 16F);
-            this.statusOnline.ForeColor = System.Drawing.Color.Gold;
-            this.statusOnline.BorderSides = System.Windows.Forms.ToolStripStatusLabelBorderSides.Right;
+            this.statusOnline.Text = "\uf011";
+            this.statusOnline.Font = MainForm.FaFont(14F);
+            this.statusOnline.ForeColor = System.Drawing.Color.Gray;
             this.statusOnline.Padding = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.statusOnline.ToolTipText = "Keep Online: Off";
+            this.statusOnline.IsLink = true;
+            this.statusOnline.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
             this.statusOnline.Click += new System.EventHandler(this.statusOnline_Click);
             //
             // statusLog
             //
             this.statusLog.Name = "statusLog";
-            this.statusLog.Text = "\uD83D\uDDD2";
-            this.statusLog.Font = new System.Drawing.Font("Segoe UI Emoji", 14F);
-            this.statusLog.IsLink = true;
-            this.statusLog.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
-            this.statusLog.BorderSides = System.Windows.Forms.ToolStripStatusLabelBorderSides.Right;
+            this.statusLog.Text = "\uf15c";
+            this.statusLog.Font = MainForm.FaFont(14F);
             this.statusLog.Padding = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.statusLog.ToolTipText = "Toggle Log";
+            this.statusLog.IsLink = true;
+            this.statusLog.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
             this.statusLog.Click += new System.EventHandler(this.statusLog_Click);
             //
             // statusLock
             //
             this.statusLock.Name = "statusLock";
-            this.statusLock.Text = "\uD83D\uDD10";
-            this.statusLock.Font = new System.Drawing.Font("Segoe UI Emoji", 14F);
-            this.statusLock.IsLink = true;
-            this.statusLock.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
+            this.statusLock.Text = "\uf023";
+            this.statusLock.Font = MainForm.FaFont(14F);
             this.statusLock.Padding = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.statusLock.ToolTipText = "Lock Screen";
+            this.statusLock.IsLink = true;
+            this.statusLock.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
             this.statusLock.Click += new System.EventHandler(this.statusLock_Click);
             //
             // statusSpacer — pushes record to the right
@@ -228,12 +229,12 @@ namespace KeepSessionAlive
             // statusRecord
             //
             this.statusRecord.Name = "statusRecord";
-            this.statusRecord.Text = "\u23FA";
-            this.statusRecord.Font = new System.Drawing.Font("Segoe UI Emoji", 14F);
-            this.statusRecord.IsLink = true;
-            this.statusRecord.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
+            this.statusRecord.Text = "\uf03d";
+            this.statusRecord.Font = MainForm.FaFont(14F);
             this.statusRecord.Padding = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.statusRecord.ToolTipText = "Start Recording";
+            this.statusRecord.IsLink = true;
+            this.statusRecord.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
             this.statusRecord.Click += new System.EventHandler(this.statusRecord_Click);
             //
             // trayContextMenu
@@ -269,7 +270,7 @@ namespace KeepSessionAlive
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(495, 410);
+            this.ClientSize = new System.Drawing.Size(495, 418);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
             this.Controls.Add(this.labelIdleTime);
             this.Controls.Add(this.labelIdleTitle);
@@ -279,7 +280,7 @@ namespace KeepSessionAlive
             this.Controls.Add(this.textBox1);
             this.Controls.Add(this.panelTitleBar);
             this.Controls.Add(this.statusStrip1);
-            this.MinimumSize = new System.Drawing.Size(495, 410);
+            this.MinimumSize = new System.Drawing.Size(495, 418);
             this.Name = "Form1";
             this.Text = "Keep Session Alive";
             this.Resize += new System.EventHandler(this.Form1_Resize);

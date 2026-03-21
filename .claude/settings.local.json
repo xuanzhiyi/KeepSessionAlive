@@ -4,7 +4,8 @@
       "Bash(ls *.sln)",
       "Bash(nuget install:*)",
       "Bash(where nuget:*)",
-      "Bash(where dotnet:*)"
+      "Bash(where dotnet:*)",
+      "Bash(\"/c/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/amd64/MSBuild.exe\" KeepSessionAlive.sln -t:Build -p:Configuration=Release -v:minimal)"
     ]
   }
 }

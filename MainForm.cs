@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Text;
 using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -72,8 +74,46 @@ namespace KeepSessionAlive
         private string   _tempVideoPath;
         private bool     _isRecording;
 
+        // --- FontAwesome ---
+        private static PrivateFontCollection _faFonts;
+        private static FontFamily _faFamily;
+
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr AddFontMemResourceEx(IntPtr pbFont, uint cbFont,
+            IntPtr pdv, [In] ref uint pcFonts);
+
+        private static void LoadFontAwesome()
+        {
+            if (_faFonts != null) return;
+            _faFonts = new PrivateFontCollection();
+            var asm = Assembly.GetExecutingAssembly();
+            var resName = "KeepSessionAlive.Resources.Font Awesome 7 Free-Solid-900.otf";
+            using (var stream = asm.GetManifestResourceStream(resName))
+            {
+                if (stream == null) return;
+                byte[] data = new byte[stream.Length];
+                stream.Read(data, 0, data.Length);
+                IntPtr ptr = Marshal.AllocCoTaskMem(data.Length);
+                Marshal.Copy(data, 0, ptr, data.Length);
+
+                // Register with GDI so WinForms controls render correctly
+                uint fontCount = 0;
+                AddFontMemResourceEx(ptr, (uint)data.Length, IntPtr.Zero, ref fontCount);
+
+                // Also register with GDI+ for FontFamily access
+                _faFonts.AddMemoryFont(ptr, data.Length);
+            }
+            _faFamily = _faFonts.Families[0];
+        }
+
+        private static Font FaFont(float size)
+        {
+            return new Font(_faFamily, size, FontStyle.Regular, GraphicsUnit.Point);
+        }
+
         public MainForm()
         {
+            LoadFontAwesome();
             InitializeComponent();
 
             notifyIcon1.Icon = BuildTrayIcon();
@@ -101,15 +141,17 @@ namespace KeepSessionAlive
             // Status strip
             statusStrip1.BackColor = System.Drawing.Color.FromArgb(20, 20, 20);
             statusStrip1.ForeColor = text;
-            statusLog.ForeColor    = orange;
-            statusLog.LinkColor    = orange;
+            statusOnline.LinkColor         = System.Drawing.Color.Gray;
+            statusOnline.ActiveLinkColor   = System.Drawing.Color.White;
+            statusLog.ForeColor        = orange;
+            statusLog.LinkColor        = orange;
             statusLog.ActiveLinkColor  = System.Drawing.Color.White;
-            statusLock.ForeColor   = orange;
-            statusLock.LinkColor   = orange;
+            statusLock.ForeColor       = orange;
+            statusLock.LinkColor       = orange;
             statusLock.ActiveLinkColor = System.Drawing.Color.White;
-            statusRecord.ForeColor       = orange;
-            statusRecord.LinkColor       = orange;
-            statusRecord.ActiveLinkColor = System.Drawing.Color.White;
+            statusRecord.ForeColor       = System.Drawing.Color.IndianRed;
+            statusRecord.LinkColor       = System.Drawing.Color.IndianRed;
+            statusRecord.ActiveLinkColor = System.Drawing.Color.Red;
 
             // Log text box
             textBox1.BackColor = surface;
@@ -425,16 +467,16 @@ namespace KeepSessionAlive
             {
                 _cts.Cancel();
                 _cts = null;
-                statusOnline.Text = "\u25CF";
-                statusOnline.ForeColor = System.Drawing.Color.Gold;
+                statusOnline.ForeColor = System.Drawing.Color.Gray;
+                statusOnline.LinkColor = System.Drawing.Color.Gray;
                 statusOnline.ToolTipText = "Keep Online: Off";
                 AppendTextBox($"{DateTime.Now:HH:mm:ss} - Stopped.\r\n");
                 return;
             }
 
             _cts = new CancellationTokenSource();
-            statusOnline.Text = "\u25CF";
             statusOnline.ForeColor = System.Drawing.Color.LimeGreen;
+            statusOnline.LinkColor = System.Drawing.Color.LimeGreen;
             statusOnline.ToolTipText = "Keep Online: On";
             AppendTextBox($"{DateTime.Now:HH:mm:ss} - Started. Waiting for {IdleThresholdMs / 60000} min idle...\r\n");
 
@@ -445,8 +487,8 @@ namespace KeepSessionAlive
             {
                 Invoke(new Action(() =>
                 {
-                    statusOnline.Text = "\u25CF";
-                    statusOnline.ForeColor = System.Drawing.Color.Gold;
+                    statusOnline.ForeColor = System.Drawing.Color.Gray;
+                    statusOnline.LinkColor = System.Drawing.Color.Gray;
                     statusOnline.ToolTipText = "Keep Online: Off";
                     _cts = null;
                 }));
@@ -516,10 +558,13 @@ namespace KeepSessionAlive
             statusRecord.Enabled = false;
             await ShowCountdownAsync();
             StartRecording();
-            statusRecord.Text = "\u23F9";
+            statusRecord.Text = "\uf04d";
             statusRecord.ToolTipText = "Stop Recording";
             statusRecord.Enabled = true;
             _isRecording = true;
+
+            // Minimize to tray so the app window isn't in the recording
+            this.WindowState = FormWindowState.Minimized;
         }
 
         // ── Inline countdown overlay ────────────────────────────────────────
@@ -602,7 +647,7 @@ namespace KeepSessionAlive
             BeginInvoke(new Action(() =>
             {
                 AppendTextBox($"{DateTime.Now:HH:mm:ss} - Recording stopped.\r\n");
-                statusRecord.Text = "\u23FA";
+                statusRecord.Text = "\uf03d";
                 statusRecord.ToolTipText = "Start Recording";
                 statusRecord.Enabled = true;
                 CleanupRecorder();
@@ -616,7 +661,7 @@ namespace KeepSessionAlive
             BeginInvoke(new Action(() =>
             {
                 AppendTextBox($"{DateTime.Now:HH:mm:ss} - Recording failed: {e.Error}\r\n");
-                statusRecord.Text = "\u23FA";
+                statusRecord.Text = "\uf03d";
                 statusRecord.ToolTipText = "Start Recording";
                 statusRecord.Enabled = true;
                 CleanupRecorder();

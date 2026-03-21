@@ -3,6 +3,7 @@
 A WinForms (.NET Framework 4.8) desktop productivity utility with a dark theme (orange accent on dark gray/black). Borderless window with custom title bar.
 
 ## Project Structure
+
 ```
 KeepSessionAlive/
   MainForm.cs              - All main logic (single partial class)

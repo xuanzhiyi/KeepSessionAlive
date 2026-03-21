@@ -189,6 +189,7 @@ namespace KeepSessionAlive
             this.statusSpacer       = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusCapture     = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusExportPpt   = new System.Windows.Forms.ToolStripStatusLabel();
+            this.statusAdLookup    = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
                 this.statusOnline,
                 this.statusLog,
@@ -196,6 +197,7 @@ namespace KeepSessionAlive
                 this.statusSnap,
                 this.statusCapture,
                 this.statusExportPpt,
+                this.statusAdLookup,
                 this.statusSpacer,
                 this.statusRecord });
             this.statusStrip1.Name = "statusStrip1";
@@ -272,6 +274,17 @@ namespace KeepSessionAlive
             this.statusExportPpt.Visible = false;
             this.statusExportPpt.Click += new System.EventHandler(this.statusExportPpt_Click);
             //
+            // statusAdLookup — AD group/user lookup
+            //
+            this.statusAdLookup.Name = "statusAdLookup";
+            this.statusAdLookup.Text = "\uf0c0";
+            this.statusAdLookup.Font = MainForm.FaFont(14F);
+            this.statusAdLookup.Padding = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.statusAdLookup.ToolTipText = "AD Lookup";
+            this.statusAdLookup.IsLink = true;
+            this.statusAdLookup.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
+            this.statusAdLookup.Click += new System.EventHandler(this.statusAdLookup_Click);
+            //
             // statusSpacer — pushes record to the right
             //
             this.statusSpacer.Name = "statusSpacer";
@@ -298,6 +311,7 @@ namespace KeepSessionAlive
             this.trayMenuSnap       = new System.Windows.Forms.ToolStripMenuItem();
             this.trayMenuCapture    = new System.Windows.Forms.ToolStripMenuItem();
             this.trayMenuExportPpt  = new System.Windows.Forms.ToolStripMenuItem();
+            this.trayMenuAdLookup   = new System.Windows.Forms.ToolStripMenuItem();
             this.traySep1           = new System.Windows.Forms.ToolStripSeparator();
             this.trayContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
                 this.trayMenuOnline,
@@ -306,6 +320,7 @@ namespace KeepSessionAlive
                 this.trayMenuSnap,
                 this.trayMenuCapture,
                 this.trayMenuExportPpt,
+                this.trayMenuAdLookup,
                 this.trayMenuLock,
                 this.traySep1,
                 this.trayMenuRestore,
@@ -350,6 +365,12 @@ namespace KeepSessionAlive
             this.trayMenuExportPpt.Text = "Export to PowerPoint";
             this.trayMenuExportPpt.Visible = false;
             this.trayMenuExportPpt.Click += new System.EventHandler(this.TrayMenuExportPpt_Click);
+            //
+            // trayMenuAdLookup
+            //
+            this.trayMenuAdLookup.Name = "trayMenuAdLookup";
+            this.trayMenuAdLookup.Text = "AD Lookup";
+            this.trayMenuAdLookup.Click += new System.EventHandler(this.TrayMenuAdLookup_Click);
             //
             // trayMenuLock
             //
@@ -427,6 +448,7 @@ namespace KeepSessionAlive
         private System.Windows.Forms.ToolStripMenuItem trayMenuSnap;
         private System.Windows.Forms.ToolStripMenuItem trayMenuCapture;
         private System.Windows.Forms.ToolStripMenuItem trayMenuExportPpt;
+        private System.Windows.Forms.ToolStripMenuItem trayMenuAdLookup;
         private System.Windows.Forms.ToolStripSeparator traySep1;
         private System.Windows.Forms.ToolStripMenuItem trayMenuRestore;
         private System.Windows.Forms.ToolStripMenuItem trayMenuExit;
@@ -442,6 +464,7 @@ namespace KeepSessionAlive
         private System.Windows.Forms.ToolStripStatusLabel statusSpacer;
         private System.Windows.Forms.ToolStripStatusLabel statusCapture;
         private System.Windows.Forms.ToolStripStatusLabel statusExportPpt;
+        private System.Windows.Forms.ToolStripStatusLabel statusAdLookup;
         private System.Windows.Forms.ToolStripStatusLabel statusRecord;
     }
 }

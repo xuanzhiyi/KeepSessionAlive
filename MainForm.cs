@@ -159,6 +159,8 @@ namespace KeepSessionAlive
 
         private static Font FaFont(float size)
         {
+            if (_faFamily == null)
+                return new Font("Segoe UI", size, FontStyle.Regular, GraphicsUnit.Point);
             return new Font(_faFamily, size, FontStyle.Regular, GraphicsUnit.Point);
         }
 
@@ -267,10 +269,15 @@ namespace KeepSessionAlive
             statusExportPpt.ForeColor      = orange;
             statusExportPpt.LinkColor      = orange;
             statusExportPpt.ActiveLinkColor = System.Drawing.Color.White;
+            statusAdLookup.ForeColor      = orange;
+            statusAdLookup.LinkColor      = orange;
+            statusAdLookup.ActiveLinkColor = System.Drawing.Color.White;
             trayMenuCapture.BackColor  = surface;
             trayMenuCapture.ForeColor  = text;
             trayMenuExportPpt.BackColor = surface;
             trayMenuExportPpt.ForeColor = text;
+            trayMenuAdLookup.BackColor  = surface;
+            trayMenuAdLookup.ForeColor  = text;
         }
 
         // ── Custom title bar drag ──────────────────────────────────────────────
@@ -877,6 +884,15 @@ namespace KeepSessionAlive
         private void TrayMenuCapture_Click(object sender, EventArgs e) => StartRegionCapture();
         private void statusExportPpt_Click(object sender, EventArgs e) => ExportCapturesToPptx();
         private void TrayMenuExportPpt_Click(object sender, EventArgs e) => ExportCapturesToPptx();
+
+        private void statusAdLookup_Click(object sender, EventArgs e) => OpenAdLookup();
+        private void TrayMenuAdLookup_Click(object sender, EventArgs e) => OpenAdLookup();
+
+        private void OpenAdLookup()
+        {
+            var form = new AdLookupForm();
+            form.Show(this);
+        }
 
         private void StartRegionCapture()
         {

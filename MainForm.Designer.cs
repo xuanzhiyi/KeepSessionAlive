@@ -174,14 +174,17 @@ namespace KeepSessionAlive
             //
             this.statusOnline       = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusRecord       = new System.Windows.Forms.ToolStripStatusLabel();
+            this.statusSnap         = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusSpacer       = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
                 this.statusOnline,
                 this.statusLog,
                 this.statusLock,
+                this.statusSnap,
                 this.statusSpacer,
                 this.statusRecord });
             this.statusStrip1.Name = "statusStrip1";
+            this.statusStrip1.AutoSize = false;
             this.statusStrip1.Size = new System.Drawing.Size(495, 40);
             this.statusStrip1.SizingGrip = false;
             this.statusStrip1.ShowItemToolTips = true;
@@ -220,6 +223,17 @@ namespace KeepSessionAlive
             this.statusLock.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
             this.statusLock.Click += new System.EventHandler(this.statusLock_Click);
             //
+            // statusSnap — snap windows to grid
+            //
+            this.statusSnap.Name = "statusSnap";
+            this.statusSnap.Text = "\uf26c";
+            this.statusSnap.Font = MainForm.FaFont(14F);
+            this.statusSnap.Padding = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.statusSnap.ToolTipText = "Snap Windows to Grid";
+            this.statusSnap.IsLink = true;
+            this.statusSnap.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
+            this.statusSnap.Click += new System.EventHandler(this.statusSnap_Click);
+            //
             // statusSpacer — pushes record to the right
             //
             this.statusSpacer.Name = "statusSpacer";
@@ -239,23 +253,68 @@ namespace KeepSessionAlive
             //
             // trayContextMenu
             //
+            this.trayMenuOnline     = new System.Windows.Forms.ToolStripMenuItem();
+            this.trayMenuRecord     = new System.Windows.Forms.ToolStripMenuItem();
+            this.trayMenuStopRec    = new System.Windows.Forms.ToolStripMenuItem();
+            this.trayMenuLock       = new System.Windows.Forms.ToolStripMenuItem();
+            this.trayMenuSnap       = new System.Windows.Forms.ToolStripMenuItem();
+            this.traySep1           = new System.Windows.Forms.ToolStripSeparator();
             this.trayContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+                this.trayMenuOnline,
+                this.trayMenuRecord,
+                this.trayMenuStopRec,
+                this.trayMenuSnap,
+                this.trayMenuLock,
+                this.traySep1,
                 this.trayMenuRestore,
                 this.trayMenuExit });
             this.trayContextMenu.Name = "trayContextMenu";
-            this.trayContextMenu.Size = new System.Drawing.Size(114, 48);
+            //
+            // trayMenuOnline
+            //
+            this.trayMenuOnline.Name = "trayMenuOnline";
+            this.trayMenuOnline.Text = "Keep Online";
+            this.trayMenuOnline.Click += new System.EventHandler(this.TrayMenuOnline_Click);
+            //
+            // trayMenuRecord
+            //
+            this.trayMenuRecord.Name = "trayMenuRecord";
+            this.trayMenuRecord.Text = "Start Recording";
+            this.trayMenuRecord.Click += new System.EventHandler(this.TrayMenuRecord_Click);
+            //
+            // trayMenuStopRec
+            //
+            this.trayMenuStopRec.Name = "trayMenuStopRec";
+            this.trayMenuStopRec.Text = "Stop Recording";
+            this.trayMenuStopRec.ForeColor = System.Drawing.Color.IndianRed;
+            this.trayMenuStopRec.Visible = false;
+            this.trayMenuStopRec.Click += new System.EventHandler(this.TrayMenuStopRec_Click);
+            //
+            // trayMenuSnap
+            //
+            this.trayMenuSnap.Name = "trayMenuSnap";
+            this.trayMenuSnap.Text = "Snap Windows";
+            this.trayMenuSnap.Click += new System.EventHandler(this.TrayMenuSnap_Click);
+            //
+            // trayMenuLock
+            //
+            this.trayMenuLock.Name = "trayMenuLock";
+            this.trayMenuLock.Text = "Lock Screen";
+            this.trayMenuLock.Click += new System.EventHandler(this.TrayMenuLock_Click);
+            //
+            // traySep1
+            //
+            this.traySep1.Name = "traySep1";
             //
             // trayMenuRestore
             //
             this.trayMenuRestore.Name = "trayMenuRestore";
-            this.trayMenuRestore.Size = new System.Drawing.Size(113, 22);
             this.trayMenuRestore.Text = "Restore";
             this.trayMenuRestore.Click += new System.EventHandler(this.TrayMenuRestore_Click);
             //
             // trayMenuExit
             //
             this.trayMenuExit.Name = "trayMenuExit";
-            this.trayMenuExit.Size = new System.Drawing.Size(113, 22);
             this.trayMenuExit.Text = "Exit";
             this.trayMenuExit.Click += new System.EventHandler(this.TrayMenuExit_Click);
             //
@@ -305,6 +364,12 @@ namespace KeepSessionAlive
         private System.Windows.Forms.Label labelIdleTime;
         private System.Windows.Forms.NotifyIcon notifyIcon1;
         private System.Windows.Forms.ContextMenuStrip trayContextMenu;
+        private System.Windows.Forms.ToolStripMenuItem trayMenuOnline;
+        private System.Windows.Forms.ToolStripMenuItem trayMenuRecord;
+        private System.Windows.Forms.ToolStripMenuItem trayMenuStopRec;
+        private System.Windows.Forms.ToolStripMenuItem trayMenuLock;
+        private System.Windows.Forms.ToolStripMenuItem trayMenuSnap;
+        private System.Windows.Forms.ToolStripSeparator traySep1;
         private System.Windows.Forms.ToolStripMenuItem trayMenuRestore;
         private System.Windows.Forms.ToolStripMenuItem trayMenuExit;
         private System.Windows.Forms.Panel panelTitleBar;
@@ -315,6 +380,7 @@ namespace KeepSessionAlive
         private System.Windows.Forms.ToolStripStatusLabel statusLog;
         private System.Windows.Forms.ToolStripStatusLabel statusLock;
         private System.Windows.Forms.ToolStripStatusLabel statusOnline;
+        private System.Windows.Forms.ToolStripStatusLabel statusSnap;
         private System.Windows.Forms.ToolStripStatusLabel statusSpacer;
         private System.Windows.Forms.ToolStripStatusLabel statusRecord;
     }

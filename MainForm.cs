@@ -33,6 +33,53 @@ namespace KeepSessionAlive
         [DllImport("user32.dll")]
         static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool IsWindowVisible(IntPtr hWnd);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
+
+        [DllImport("user32.dll")]
+        static extern int GetWindowTextLength(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, bool bRepaint);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool IsIconic(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("user32.dll")]
+        static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+
+        [DllImport("user32.dll")]
+        static extern IntPtr GetShellWindow();
+
+        [DllImport("user32.dll")]
+        static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        [DllImport("dwmapi.dll")]
+        static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out bool pvAttribute, int cbAttribute);
+
+        private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+        private const int GW_OWNER = 4;
+        private const int GWL_EXSTYLE = -20;
+        private const int WS_EX_TOOLWINDOW = 0x00000080;
+        private const int WS_EX_APPWINDOW = 0x00040000;
+        private const int SW_RESTORE = 9;
+        private const int DWMWA_CLOAKED = 14;
+
         // --- Mouse constants ---
         private const int MOUSEEVENTF_MOVE      = 0x0001;
         private const int MOUSEEVENTF_LEFTDOWN  = 0x0002;
@@ -194,6 +241,18 @@ namespace KeepSessionAlive
             trayMenuRestore.ForeColor = text;
             trayMenuExit.BackColor    = surface;
             trayMenuExit.ForeColor    = text;
+            trayMenuOnline.BackColor  = surface;
+            trayMenuOnline.ForeColor  = text;
+            trayMenuRecord.BackColor  = surface;
+            trayMenuRecord.ForeColor  = text;
+            trayMenuStopRec.BackColor = surface;
+            trayMenuLock.BackColor    = surface;
+            trayMenuLock.ForeColor    = text;
+            trayMenuSnap.BackColor    = surface;
+            trayMenuSnap.ForeColor    = text;
+            statusSnap.ForeColor      = orange;
+            statusSnap.LinkColor      = orange;
+            statusSnap.ActiveLinkColor = System.Drawing.Color.White;
         }
 
         // ── Custom title bar drag ──────────────────────────────────────────────
@@ -252,6 +311,21 @@ namespace KeepSessionAlive
         private void NotifyIcon1_DoubleClick(object sender, EventArgs e) => RestoreFromTray();
 
         private void TrayMenuRestore_Click(object sender, EventArgs e) => RestoreFromTray();
+
+        private void TrayMenuOnline_Click(object sender, EventArgs e) => statusOnline_Click(sender, e);
+
+        private void TrayMenuRecord_Click(object sender, EventArgs e) => statusRecord_Click(sender, e);
+
+        private void TrayMenuStopRec_Click(object sender, EventArgs e)
+        {
+            if (_isRecording)
+            {
+                statusRecord.Enabled = false;
+                _recorder?.Stop();
+            }
+        }
+
+        private void TrayMenuLock_Click(object sender, EventArgs e) => LockWorkStation();
 
         private void TrayMenuExit_Click(object sender, EventArgs e)
         {
@@ -470,6 +544,8 @@ namespace KeepSessionAlive
                 statusOnline.ForeColor = System.Drawing.Color.Gray;
                 statusOnline.LinkColor = System.Drawing.Color.Gray;
                 statusOnline.ToolTipText = "Keep Online: Off";
+                trayMenuOnline.Text = "Keep Online";
+                trayMenuOnline.Checked = false;
                 AppendTextBox($"{DateTime.Now:HH:mm:ss} - Stopped.\r\n");
                 return;
             }
@@ -478,6 +554,8 @@ namespace KeepSessionAlive
             statusOnline.ForeColor = System.Drawing.Color.LimeGreen;
             statusOnline.LinkColor = System.Drawing.Color.LimeGreen;
             statusOnline.ToolTipText = "Keep Online: On";
+            trayMenuOnline.Text = "Keep Online (On)";
+            trayMenuOnline.Checked = true;
             AppendTextBox($"{DateTime.Now:HH:mm:ss} - Started. Waiting for {IdleThresholdMs / 60000} min idle...\r\n");
 
             var token = _cts.Token;
@@ -490,6 +568,8 @@ namespace KeepSessionAlive
                     statusOnline.ForeColor = System.Drawing.Color.Gray;
                     statusOnline.LinkColor = System.Drawing.Color.Gray;
                     statusOnline.ToolTipText = "Keep Online: Off";
+                    trayMenuOnline.Text = "Keep Online";
+                    trayMenuOnline.Checked = false;
                     _cts = null;
                 }));
             }
@@ -562,6 +642,8 @@ namespace KeepSessionAlive
             statusRecord.ToolTipText = "Stop Recording";
             statusRecord.Enabled = true;
             _isRecording = true;
+            trayMenuRecord.Visible = false;
+            trayMenuStopRec.Visible = true;
 
             // Minimize to tray so the app window isn't in the recording
             this.WindowState = FormWindowState.Minimized;
@@ -650,6 +732,8 @@ namespace KeepSessionAlive
                 statusRecord.Text = "\uf03d";
                 statusRecord.ToolTipText = "Start Recording";
                 statusRecord.Enabled = true;
+                trayMenuStopRec.Visible = false;
+                trayMenuRecord.Visible = true;
                 CleanupRecorder();
                 SaveRecording();
             }));
@@ -664,6 +748,8 @@ namespace KeepSessionAlive
                 statusRecord.Text = "\uf03d";
                 statusRecord.ToolTipText = "Start Recording";
                 statusRecord.Enabled = true;
+                trayMenuStopRec.Visible = false;
+                trayMenuRecord.Visible = true;
                 CleanupRecorder();
             }));
         }
@@ -725,6 +811,92 @@ namespace KeepSessionAlive
                 try { if (_tempVideoPath != null) File.Delete(_tempVideoPath); } catch { }
             }
             base.OnFormClosing(e);
+        }
+
+        // ── Snap windows to quadrants ────────────────────────────────────────
+        private void statusSnap_Click(object sender, EventArgs e)
+        {
+            SnapWindowsToGrid();
+        }
+
+        private void TrayMenuSnap_Click(object sender, EventArgs e)
+        {
+            SnapWindowsToGrid();
+        }
+
+        private void SnapWindowsToGrid()
+        {
+            var myPid = (uint)Process.GetCurrentProcess().Id;
+            var shellWnd = GetShellWindow();
+            var windows = new List<IntPtr>();
+
+            EnumWindows((hWnd, _) =>
+            {
+                // Skip invisible, minimized, shell, and our own window
+                if (!IsWindowVisible(hWnd)) return true;
+                if (hWnd == shellWnd) return true;
+                if (IsIconic(hWnd)) return true;
+
+                // Skip tool windows (no taskbar entry) unless they have WS_EX_APPWINDOW
+                int exStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
+                if ((exStyle & WS_EX_TOOLWINDOW) != 0 && (exStyle & WS_EX_APPWINDOW) == 0)
+                    return true;
+
+                // Skip windows owned by another window (popups, dialogs)
+                if (GetWindow(hWnd, GW_OWNER) != IntPtr.Zero) return true;
+
+                // Skip cloaked UWP windows (hidden virtual desktop windows)
+                if (DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, out bool cloaked, sizeof(int)) == 0 && cloaked)
+                    return true;
+
+                // Must have a title
+                if (GetWindowTextLength(hWnd) == 0) return true;
+
+                // Skip our own process
+                GetWindowThreadProcessId(hWnd, out uint pid);
+                if (pid == myPid) return true;
+
+                windows.Add(hWnd);
+                return true;
+            }, IntPtr.Zero);
+
+            if (windows.Count == 0) return;
+
+            var screens = Screen.AllScreens;
+            int perScreen = 4;
+            int total = Math.Min(windows.Count, screens.Length * perScreen);
+
+            int windowIdx = 0;
+            foreach (var screen in screens)
+            {
+                if (windowIdx >= total) break;
+
+                var wa = screen.WorkingArea;
+                int halfW = wa.Width / 2;
+                int halfH = wa.Height / 2;
+
+                // Quadrants: top-left, top-right, bottom-left, bottom-right
+                var quadrants = new[]
+                {
+                    new Rectangle(wa.Left,         wa.Top,          halfW, halfH),
+                    new Rectangle(wa.Left + halfW, wa.Top,          halfW, halfH),
+                    new Rectangle(wa.Left,         wa.Top + halfH,  halfW, halfH),
+                    new Rectangle(wa.Left + halfW, wa.Top + halfH,  halfW, halfH),
+                };
+
+                for (int q = 0; q < perScreen && windowIdx < total; q++, windowIdx++)
+                {
+                    var hwnd = windows[windowIdx];
+                    var rect = quadrants[q];
+
+                    // Restore if minimized
+                    if (IsIconic(hwnd)) ShowWindow(hwnd, SW_RESTORE);
+
+                    MoveWindow(hwnd, rect.X, rect.Y, rect.Width, rect.Height, true);
+                }
+            }
+
+            AppendTextBox($"{DateTime.Now:HH:mm:ss} - Snapped {total} windows to grid.\r\n");
         }
 
         private void runQuery()

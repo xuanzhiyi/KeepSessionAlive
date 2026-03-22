@@ -112,9 +112,8 @@ namespace KeepSessionAlive
         private long _totalWorkSeconds = 0;
         private long _totalIdleSeconds = 0;
 
-        // App tracking: name -> accumulated seconds, name -> grid row index
+        // App tracking: name -> accumulated seconds
         private readonly Dictionary<string, long> _appSeconds = new Dictionary<string, long>();
-        private readonly Dictionary<string, int>  _appRowMap  = new Dictionary<string, int>();
         private int _barRefreshCounter;
 
         // --- Recording state ---
@@ -496,8 +495,7 @@ namespace KeepSessionAlive
             if (!_appSeconds.ContainsKey(appName))
             {
                 _appSeconds[appName] = 0;
-                int idx = dataGridView1.Rows.Add(appName, "0:00:00");
-                _appRowMap[appName] = idx;
+                dataGridView1.Rows.Add(appName, "0:00:00");
             }
 
             _appSeconds[appName]++;
@@ -505,7 +503,16 @@ namespace KeepSessionAlive
             long h = total / 3600;
             long m = (total % 3600) / 60;
             long s = total % 60;
-            dataGridView1.Rows[_appRowMap[appName]].Cells["colTime"].Value = $"{h}:{m:D2}:{s:D2}";
+            string formatted = $"{h}:{m:D2}:{s:D2}";
+
+            foreach (DataGridViewRow row in dataGridView1.Rows)
+            {
+                if (row.Cells["colApp"].Value as string == appName)
+                {
+                    row.Cells["colTime"].Value = formatted;
+                    break;
+                }
+            }
         }
 
         // --- Bar chart cell painting ---

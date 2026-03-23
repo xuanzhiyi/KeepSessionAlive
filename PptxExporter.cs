@@ -29,7 +29,8 @@ namespace KeepSessionAlive
 
                 string masterRId     = presentationPart.GetIdOfPart(slideMasterPart);
                 string layoutRId     = slideMasterPart.GetIdOfPart(slideLayoutPart);
-                string masterBackRId = slideLayoutPart.AddPart(slideMasterPart); // layout→master back-ref
+                slideLayoutPart.AddPart(slideMasterPart); // layout→master back-ref
+                string masterBackRId = slideLayoutPart.GetIdOfPart(slideMasterPart);
 
                 Log($"masterRId={masterRId}  layoutRId={layoutRId}  masterBackRId={masterBackRId}");
 

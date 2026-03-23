@@ -777,13 +777,13 @@ namespace KeepSessionAlive
                 {
                     RecorderMode   = RecorderMode.Video,
                     OutputFrameSize = new ScreenSize(
-                        Screen.PrimaryScreen.Bounds.Width / 2,
-                        Screen.PrimaryScreen.Bounds.Height / 2),
+                        Screen.PrimaryScreen.Bounds.Width,
+                        Screen.PrimaryScreen.Bounds.Height),
                 },
                 VideoEncoderOptions = new VideoEncoderOptions
                 {
-                    Bitrate   = 2000 * 1000,
-                    Framerate = 15,
+                    Bitrate   = 4000 * 1000,
+                    Framerate = 24,
                     IsFixedFramerate = false,
                     Encoder   = new H264VideoEncoder
                     {

@@ -20,27 +20,49 @@ namespace KeepSessionAlive
                 var presentationPart = ppt.AddPresentationPart();
                 presentationPart.Presentation = new Presentation();
 
+                // --- Slide Master ---
                 var slideMasterPart = presentationPart.AddNewPart<SlideMasterPart>();
-                slideMasterPart.SlideMaster = new SlideMaster(
+                var slideMaster = new SlideMaster(
                     new CommonSlideData(new ShapeTree(
                         new P.NonVisualGroupShapeProperties(
                             new P.NonVisualDrawingProperties { Id = 1, Name = "" },
                             new P.NonVisualGroupShapeDrawingProperties(),
                             new ApplicationNonVisualDrawingProperties()),
                         new GroupShapeProperties(new D.TransformGroup()))),
+                    new P.ColorMap
+                    {
+                        Background1        = D.ColorSchemeIndexValues.Light1,
+                        Text1              = D.ColorSchemeIndexValues.Dark1,
+                        Background2        = D.ColorSchemeIndexValues.Light2,
+                        Text2              = D.ColorSchemeIndexValues.Dark2,
+                        Accent1            = D.ColorSchemeIndexValues.Accent1,
+                        Accent2            = D.ColorSchemeIndexValues.Accent2,
+                        Accent3            = D.ColorSchemeIndexValues.Accent3,
+                        Accent4            = D.ColorSchemeIndexValues.Accent4,
+                        Accent5            = D.ColorSchemeIndexValues.Accent5,
+                        Accent6            = D.ColorSchemeIndexValues.Accent6,
+                        Hyperlink          = D.ColorSchemeIndexValues.Hyperlink,
+                        FollowedHyperlink  = D.ColorSchemeIndexValues.FollowedHyperlink,
+                    },
                     new P.SlideLayoutIdList());
+                slideMasterPart.SlideMaster = slideMaster;
 
+                // --- Slide Layout ---
                 var slideLayoutPart = slideMasterPart.AddNewPart<SlideLayoutPart>();
-                slideLayoutPart.SlideLayout = new SlideLayout(
+                var slideLayout = new SlideLayout { Type = SlideLayoutValues.Blank, Preserve = true };
+                slideLayout.Append(
                     new CommonSlideData(new ShapeTree(
                         new P.NonVisualGroupShapeProperties(
                             new P.NonVisualDrawingProperties { Id = 1, Name = "" },
                             new P.NonVisualGroupShapeDrawingProperties(),
                             new ApplicationNonVisualDrawingProperties()),
-                        new GroupShapeProperties(new D.TransformGroup()))));
+                        new GroupShapeProperties(new D.TransformGroup()))),
+                    new ColorMapOverride(new D.MasterColorMapping()));
+                slideLayoutPart.SlideLayout = slideLayout;
+                slideLayoutPart.AddPart(slideMasterPart);   // back-reference required
                 slideLayoutPart.SlideLayout.Save();
 
-                slideMasterPart.SlideMaster.SlideLayoutIdList.Append(
+                slideMaster.SlideLayoutIdList.Append(
                     new SlideLayoutId { Id = 2147483649U, RelationshipId = slideMasterPart.GetIdOfPart(slideLayoutPart) });
                 slideMasterPart.SlideMaster.Save();
 
@@ -105,7 +127,8 @@ namespace KeepSessionAlive
                                     new D.Transform2D(
                                         new D.Offset { X = offX, Y = offY },
                                         new D.Extents { Cx = picW, Cy = picH }),
-                                    new D.PresetGeometry(new D.AdjustValueList()) { Preset = D.ShapeTypeValues.Rectangle })))));
+                                    new D.PresetGeometry(new D.AdjustValueList()) { Preset = D.ShapeTypeValues.Rectangle })))),
+                        new ColorMapOverride(new D.MasterColorMapping()));
 
                     slidePart.AddPart(slideLayoutPart);
                     slidePart.Slide.Save();

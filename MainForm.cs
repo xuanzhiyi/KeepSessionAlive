@@ -788,6 +788,11 @@ namespace KeepSessionAlive
                     Encoder   = new H264VideoEncoder
                     {
                         BitrateMode = H264BitrateControlMode.CBR,
+                        // Baseline profile: 4:2:0 chroma, universally
+                        // compatible with all players and hardware decoders.
+                        // Without this, High profile can produce corrupted
+                        // "stroke" artefacts on machines with basic decoders.
+                        EncoderProfile = H264Profile.Baseline,
                     },
                 },
                 AudioOptions = new AudioOptions

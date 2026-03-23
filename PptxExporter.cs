@@ -13,10 +13,16 @@ namespace KeepSessionAlive
 {
     internal static class PptxExporter
     {
-        public static void Create(string filePath, List<Bitmap> images)
+        public static void Create(string filePath, List<Bitmap> images, Action<string> log = null)
         {
+            void Log(string msg) => log?.Invoke($"{DateTime.Now:HH:mm:ss} [PPTX] {msg}\r\n");
+
+            Log($"Starting export — {images.Count} image(s) → {filePath}");
+
             using (var ppt = PresentationDocument.Create(filePath, PresentationDocumentType.Presentation))
             {
+                Log("Created PresentationDocument");
+
                 var presentationPart = ppt.AddPresentationPart();
                 presentationPart.Presentation = new Presentation();
 
@@ -46,6 +52,7 @@ namespace KeepSessionAlive
                     },
                     new P.SlideLayoutIdList());
                 slideMasterPart.SlideMaster = slideMaster;
+                Log("SlideMaster created with ColorMap");
 
                 // --- Slide Layout ---
                 var slideLayoutPart = slideMasterPart.AddNewPart<SlideLayoutPart>();
@@ -61,10 +68,12 @@ namespace KeepSessionAlive
                 slideLayoutPart.SlideLayout = slideLayout;
                 slideLayoutPart.AddPart(slideMasterPart);   // back-reference required
                 slideLayoutPart.SlideLayout.Save();
+                Log($"SlideLayout saved (rId={slideMasterPart.GetIdOfPart(slideLayoutPart)})");
 
                 slideMaster.SlideLayoutIdList.Append(
                     new SlideLayoutId { Id = 2147483649U, RelationshipId = slideMasterPart.GetIdOfPart(slideLayoutPart) });
                 slideMasterPart.SlideMaster.Save();
+                Log("SlideMaster saved");
 
                 presentationPart.Presentation.Append(new SlideMasterIdList(
                     new SlideMasterId { Id = 2147483648U, RelationshipId = presentationPart.GetIdOfPart(slideMasterPart) }));
@@ -84,15 +93,20 @@ namespace KeepSessionAlive
                 uint slideId = 256;
                 for (int i = 0; i < images.Count; i++)
                 {
+                    Log($"Processing image {i + 1}/{images.Count}: {images[i].Width}x{images[i].Height} px, format={images[i].PixelFormat}");
+
                     var slidePart = presentationPart.AddNewPart<SlidePart>();
                     var imgPart = slidePart.AddImagePart(ImagePartType.Png);
 
+                    long pngBytes;
                     using (var ms = new MemoryStream())
                     {
                         images[i].Save(ms, ImageFormat.Png);
+                        pngBytes = ms.Length;
                         ms.Position = 0;
                         imgPart.FeedData(ms);
                     }
+                    Log($"  PNG encoded: {pngBytes:N0} bytes, rId={slidePart.GetIdOfPart(imgPart)}");
 
                     string rId = slidePart.GetIdOfPart(imgPart);
 
@@ -107,6 +121,7 @@ namespace KeepSessionAlive
                     long picH = (long)(imgH * scale);
                     long offX = (slideW - picW) / 2;
                     long offY = (slideH - picH) / 2;
+                    Log($"  Layout: scale={scale:F4}, picW={picW}, picH={picH}, offX={offX}, offY={offY}");
 
                     slidePart.Slide = new Slide(
                         new CommonSlideData(new ShapeTree(
@@ -132,11 +147,26 @@ namespace KeepSessionAlive
 
                     slidePart.AddPart(slideLayoutPart);
                     slidePart.Slide.Save();
+                    Log($"  Slide {i + 1} saved (rId={presentationPart.GetIdOfPart(slidePart)})");
 
                     slideIdList.Append(new SlideId { Id = slideId++, RelationshipId = presentationPart.GetIdOfPart(slidePart) });
                 }
 
                 presentationPart.Presentation.Save();
+                Log("Presentation saved — closing document");
+            }
+
+            // Post-write sanity check
+            if (File.Exists(filePath))
+            {
+                long fileSize = new FileInfo(filePath).Length;
+                Log($"File written successfully: {fileSize:N0} bytes at {filePath}");
+                if (fileSize < 4096)
+                    Log("WARNING: file is suspiciously small — may be corrupt");
+            }
+            else
+            {
+                Log("ERROR: output file does not exist after write!");
             }
         }
     }

@@ -3,11 +3,10 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Text;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
-using D = DocumentFormat.OpenXml.Drawing;
-using P = DocumentFormat.OpenXml.Presentation;
 
 namespace KeepSessionAlive
 {
@@ -21,82 +20,47 @@ namespace KeepSessionAlive
 
             using (var ppt = PresentationDocument.Create(filePath, PresentationDocumentType.Presentation))
             {
-                Log("Created PresentationDocument");
-
                 var presentationPart = ppt.AddPresentationPart();
-                presentationPart.Presentation = new Presentation();
 
-                // --- Slide Master ---
-                var slideMasterPart = presentationPart.AddNewPart<SlideMasterPart>();
-                var slideMaster = new SlideMaster(
-                    new CommonSlideData(new ShapeTree(
-                        new P.NonVisualGroupShapeProperties(
-                            new P.NonVisualDrawingProperties { Id = 1, Name = "" },
-                            new P.NonVisualGroupShapeDrawingProperties(),
-                            new ApplicationNonVisualDrawingProperties()),
-                        new GroupShapeProperties(new D.TransformGroup()))),
-                    new P.ColorMap
-                    {
-                        Background1        = D.ColorSchemeIndexValues.Light1,
-                        Text1              = D.ColorSchemeIndexValues.Dark1,
-                        Background2        = D.ColorSchemeIndexValues.Light2,
-                        Text2              = D.ColorSchemeIndexValues.Dark2,
-                        Accent1            = D.ColorSchemeIndexValues.Accent1,
-                        Accent2            = D.ColorSchemeIndexValues.Accent2,
-                        Accent3            = D.ColorSchemeIndexValues.Accent3,
-                        Accent4            = D.ColorSchemeIndexValues.Accent4,
-                        Accent5            = D.ColorSchemeIndexValues.Accent5,
-                        Accent6            = D.ColorSchemeIndexValues.Accent6,
-                        Hyperlink          = D.ColorSchemeIndexValues.Hyperlink,
-                        FollowedHyperlink  = D.ColorSchemeIndexValues.FollowedHyperlink,
-                    },
-                    new P.SlideLayoutIdList());
-                slideMasterPart.SlideMaster = slideMaster;
-                Log("SlideMaster created with ColorMap");
+                // ── Create skeleton parts so the SDK assigns relationship IDs ──────────
+                var slideMasterPart  = presentationPart.AddNewPart<SlideMasterPart>();
+                var slideLayoutPart  = slideMasterPart.AddNewPart<SlideLayoutPart>();
+                var themePart        = slideMasterPart.AddNewPart<ThemePart>();
 
-                // --- Slide Layout ---
-                var slideLayoutPart = slideMasterPart.AddNewPart<SlideLayoutPart>();
-                var slideLayout = new SlideLayout { Type = SlideLayoutValues.Blank, Preserve = true };
-                slideLayout.Append(
-                    new CommonSlideData(new ShapeTree(
-                        new P.NonVisualGroupShapeProperties(
-                            new P.NonVisualDrawingProperties { Id = 1, Name = "" },
-                            new P.NonVisualGroupShapeDrawingProperties(),
-                            new ApplicationNonVisualDrawingProperties()),
-                        new GroupShapeProperties(new D.TransformGroup()))),
-                    new ColorMapOverride(new D.MasterColorMapping()));
-                slideLayoutPart.SlideLayout = slideLayout;
-                slideLayoutPart.AddPart(slideMasterPart);   // back-reference required
-                slideLayoutPart.SlideLayout.Save();
-                Log($"SlideLayout saved (rId={slideMasterPart.GetIdOfPart(slideLayoutPart)})");
+                string masterRId     = presentationPart.GetIdOfPart(slideMasterPart);
+                string layoutRId     = slideMasterPart.GetIdOfPart(slideLayoutPart);
+                string masterBackRId = slideLayoutPart.AddPart(slideMasterPart); // layout→master back-ref
 
-                slideMaster.SlideLayoutIdList.Append(
-                    new SlideLayoutId { Id = 2147483649U, RelationshipId = slideMasterPart.GetIdOfPart(slideLayoutPart) });
-                slideMasterPart.SlideMaster.Save();
-                Log("SlideMaster saved");
+                Log($"masterRId={masterRId}  layoutRId={layoutRId}  masterBackRId={masterBackRId}");
 
-                presentationPart.Presentation.Append(new SlideMasterIdList(
-                    new SlideMasterId { Id = 2147483648U, RelationshipId = presentationPart.GetIdOfPart(slideMasterPart) }));
+                // ── Write raw XML for parts that need strict compliance ───────────────
+                WriteRaw(themePart,        ThemeXml());
+                WriteRaw(slideLayoutPart,  SlideLayoutXml());
+                WriteRaw(slideMasterPart,  SlideMasterXml(layoutRId));
+                Log("Theme, SlideLayout, SlideMaster written");
 
-                // Slide size — widescreen 16:9 (in EMUs: 1 inch = 914400 EMUs)
-                long slideW = 12192000L; // 13.333 inches
-                long slideH = 6858000L;  // 7.5 inches
-
-                presentationPart.Presentation.Append(
-                    new SlideSize { Cx = (Int32Value)(int)slideW, Cy = (Int32Value)(int)slideH, Type = SlideSizeValues.Screen16x9 });
-                presentationPart.Presentation.Append(
-                    new NotesSize { Cx = 6858000, Cy = 9144000 });
+                // ── Presentation element ─────────────────────────────────────────────
+                // Element order per OOXML schema: sldMasterIdLst → sldIdLst → sldSz → notesSz
+                long slideW = 12192000L;
+                long slideH = 6858000L;
 
                 var slideIdList = new SlideIdList();
-                presentationPart.Presentation.Append(slideIdList);
+                presentationPart.Presentation = new Presentation(
+                    new SlideMasterIdList(
+                        new SlideMasterId { Id = 2147483648U, RelationshipId = masterRId }),
+                    slideIdList,
+                    new SlideSize { Cx = (Int32Value)(int)slideW, Cy = (Int32Value)(int)slideH,
+                                    Type = SlideSizeValues.Screen16x9 },
+                    new NotesSize { Cx = 6858000, Cy = 9144000 });
 
+                // ── Slides ───────────────────────────────────────────────────────────
                 uint slideId = 256;
                 for (int i = 0; i < images.Count; i++)
                 {
-                    Log($"Processing image {i + 1}/{images.Count}: {images[i].Width}x{images[i].Height} px, format={images[i].PixelFormat}");
+                    Log($"Image {i + 1}/{images.Count}: {images[i].Width}x{images[i].Height} px");
 
                     var slidePart = presentationPart.AddNewPart<SlidePart>();
-                    var imgPart = slidePart.AddImagePart(ImagePartType.Png);
+                    var imgPart   = slidePart.AddImagePart(ImagePartType.Png);
 
                     long pngBytes;
                     using (var ms = new MemoryStream())
@@ -106,68 +70,217 @@ namespace KeepSessionAlive
                         ms.Position = 0;
                         imgPart.FeedData(ms);
                     }
-                    Log($"  PNG encoded: {pngBytes:N0} bytes, rId={slidePart.GetIdOfPart(imgPart)}");
 
-                    string rId = slidePart.GetIdOfPart(imgPart);
+                    string imgRId = slidePart.GetIdOfPart(imgPart);
+                    slidePart.AddPart(slideLayoutPart); // establishes slide→layout relationship
+                    Log($"  PNG {pngBytes:N0} bytes  imgRId={imgRId}");
 
-                    // Fit image within slide preserving aspect ratio
-                    float imgW = images[i].Width;
-                    float imgH = images[i].Height;
-                    float scaleX = slideW / imgW;
-                    float scaleY = slideH / imgH;
-                    float scale = Math.Min(scaleX, scaleY);
-
-                    long picW = (long)(imgW * scale);
-                    long picH = (long)(imgH * scale);
+                    float scale = Math.Min(slideW / (float)images[i].Width,
+                                          slideH / (float)images[i].Height);
+                    long picW = (long)(images[i].Width  * scale);
+                    long picH = (long)(images[i].Height * scale);
                     long offX = (slideW - picW) / 2;
                     long offY = (slideH - picH) / 2;
-                    Log($"  Layout: scale={scale:F4}, picW={picW}, picH={picH}, offX={offX}, offY={offY}");
+                    Log($"  scale={scale:F4}  picW={picW}  picH={picH}  offX={offX}  offY={offY}");
 
-                    slidePart.Slide = new Slide(
-                        new CommonSlideData(new ShapeTree(
-                            new P.NonVisualGroupShapeProperties(
-                                new P.NonVisualDrawingProperties { Id = 1, Name = "" },
-                                new P.NonVisualGroupShapeDrawingProperties(),
-                                new ApplicationNonVisualDrawingProperties()),
-                            new GroupShapeProperties(new D.TransformGroup()),
-                            new P.Picture(
-                                new P.NonVisualPictureProperties(
-                                    new P.NonVisualDrawingProperties { Id = 2, Name = $"Screenshot {i + 1}" },
-                                    new P.NonVisualPictureDrawingProperties(new D.PictureLocks { NoChangeAspect = true }),
-                                    new ApplicationNonVisualDrawingProperties()),
-                                new P.BlipFill(
-                                    new D.Blip { Embed = rId },
-                                    new D.Stretch(new D.FillRectangle())),
-                                new P.ShapeProperties(
-                                    new D.Transform2D(
-                                        new D.Offset { X = offX, Y = offY },
-                                        new D.Extents { Cx = picW, Cy = picH }),
-                                    new D.PresetGeometry(new D.AdjustValueList()) { Preset = D.ShapeTypeValues.Rectangle })))),
-                        new ColorMapOverride(new D.MasterColorMapping()));
+                    WriteRaw(slidePart, SlideXml(imgRId, $"Screenshot {i + 1}", offX, offY, picW, picH));
 
-                    slidePart.AddPart(slideLayoutPart);
-                    slidePart.Slide.Save();
-                    Log($"  Slide {i + 1} saved (rId={presentationPart.GetIdOfPart(slidePart)})");
-
-                    slideIdList.Append(new SlideId { Id = slideId++, RelationshipId = presentationPart.GetIdOfPart(slidePart) });
+                    string slideRId = presentationPart.GetIdOfPart(slidePart);
+                    slideIdList.Append(new SlideId { Id = slideId++, RelationshipId = slideRId });
+                    Log($"  Slide {i + 1} written  slideRId={slideRId}");
                 }
 
                 presentationPart.Presentation.Save();
                 Log("Presentation saved — closing document");
             }
 
-            // Post-write sanity check
             if (File.Exists(filePath))
             {
-                long fileSize = new FileInfo(filePath).Length;
-                Log($"File written successfully: {fileSize:N0} bytes at {filePath}");
-                if (fileSize < 4096)
-                    Log("WARNING: file is suspiciously small — may be corrupt");
+                long sz = new FileInfo(filePath).Length;
+                Log($"File written: {sz:N0} bytes");
+                if (sz < 4096) Log("WARNING: suspiciously small — may be corrupt");
             }
             else
             {
-                Log("ERROR: output file does not exist after write!");
+                Log("ERROR: output file missing after write");
             }
         }
+
+        // ── Helpers ───────────────────────────────────────────────────────────────
+
+        static void WriteRaw(OpenXmlPart part, string xml)
+        {
+            using (var sw = new StreamWriter(
+                part.GetStream(FileMode.Create, FileAccess.Write),
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+                sw.Write(xml);
+        }
+
+        // ── Raw XML templates ─────────────────────────────────────────────────────
+
+        static string ThemeXml() => @"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>
+<a:theme xmlns:a=""http://schemas.openxmlformats.org/drawingml/2006/main"" name=""Office Theme"">
+  <a:themeElements>
+    <a:clrScheme name=""Office"">
+      <a:dk1><a:sysClr val=""windowText"" lastClr=""000000""/></a:dk1>
+      <a:lt1><a:sysClr val=""window"" lastClr=""FFFFFF""/></a:lt1>
+      <a:dk2><a:srgbClr val=""44546A""/></a:dk2>
+      <a:lt2><a:srgbClr val=""E7E6E6""/></a:lt2>
+      <a:accent1><a:srgbClr val=""4472C4""/></a:accent1>
+      <a:accent2><a:srgbClr val=""ED7D31""/></a:accent2>
+      <a:accent3><a:srgbClr val=""A9D18E""/></a:accent3>
+      <a:accent4><a:srgbClr val=""FFC000""/></a:accent4>
+      <a:accent5><a:srgbClr val=""5A96C8""/></a:accent5>
+      <a:accent6><a:srgbClr val=""70AD47""/></a:accent6>
+      <a:hlink><a:srgbClr val=""0563C1""/></a:hlink>
+      <a:folHlink><a:srgbClr val=""954F72""/></a:folHlink>
+    </a:clrScheme>
+    <a:fontScheme name=""Office"">
+      <a:majorFont>
+        <a:latin typeface=""Calibri Light""/>
+        <a:ea typeface=""""/>
+        <a:cs typeface=""""/>
+      </a:majorFont>
+      <a:minorFont>
+        <a:latin typeface=""Calibri""/>
+        <a:ea typeface=""""/>
+        <a:cs typeface=""""/>
+      </a:minorFont>
+    </a:fontScheme>
+    <a:fmtScheme name=""Office"">
+      <a:fillStyleLst>
+        <a:solidFill><a:schemeClr val=""phClr""/></a:solidFill>
+        <a:solidFill><a:schemeClr val=""phClr""/></a:solidFill>
+        <a:solidFill><a:schemeClr val=""phClr""/></a:solidFill>
+      </a:fillStyleLst>
+      <a:lnStyleLst>
+        <a:ln w=""6350""><a:solidFill><a:schemeClr val=""phClr""/></a:solidFill></a:ln>
+        <a:ln w=""12700""><a:solidFill><a:schemeClr val=""phClr""/></a:solidFill></a:ln>
+        <a:ln w=""19050""><a:solidFill><a:schemeClr val=""phClr""/></a:solidFill></a:ln>
+      </a:lnStyleLst>
+      <a:effectStyleLst>
+        <a:effectStyle><a:effectLst/></a:effectStyle>
+        <a:effectStyle><a:effectLst/></a:effectStyle>
+        <a:effectStyle><a:effectLst/></a:effectStyle>
+      </a:effectStyleLst>
+      <a:bgFillStyleLst>
+        <a:solidFill><a:schemeClr val=""phClr""/></a:solidFill>
+        <a:solidFill><a:schemeClr val=""phClr""/></a:solidFill>
+        <a:solidFill><a:schemeClr val=""phClr""/></a:solidFill>
+      </a:bgFillStyleLst>
+    </a:fmtScheme>
+  </a:themeElements>
+</a:theme>";
+
+        static string SlideMasterXml(string layoutRId) =>
+$@"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>
+<p:sldMaster xmlns:p=""http://schemas.openxmlformats.org/presentationml/2006/main""
+             xmlns:a=""http://schemas.openxmlformats.org/drawingml/2006/main""
+             xmlns:r=""http://schemas.openxmlformats.org/officeDocument/2006/relationships"">
+  <p:cSld>
+    <p:spTree>
+      <p:nvGrpSpPr>
+        <p:cNvPr id=""1"" name=""""/>
+        <p:cNvGrpSpPr/>
+        <p:nvPr/>
+      </p:nvGrpSpPr>
+      <p:grpSpPr>
+        <a:xfrm>
+          <a:off x=""0"" y=""0""/>
+          <a:ext cx=""0"" cy=""0""/>
+          <a:chOff x=""0"" y=""0""/>
+          <a:chExt cx=""0"" cy=""0""/>
+        </a:xfrm>
+      </p:grpSpPr>
+    </p:spTree>
+  </p:cSld>
+  <p:clrMap bg1=""lt1"" tx1=""dk1"" bg2=""lt2"" tx2=""dk2""
+            accent1=""accent1"" accent2=""accent2"" accent3=""accent3""
+            accent4=""accent4"" accent5=""accent5"" accent6=""accent6""
+            hlink=""hlink"" folHlink=""folHlink""/>
+  <p:sldLayoutIdLst>
+    <p:sldLayoutId id=""2147483649"" r:id=""{layoutRId}""/>
+  </p:sldLayoutIdLst>
+  <p:txStyles>
+    <p:titleStyle>
+      <a:lvl1pPr algn=""ctr""><a:defRPr lang=""en-US"" smtClean=""0""/></a:lvl1pPr>
+    </p:titleStyle>
+    <p:bodyStyle>
+      <a:lvl1pPr><a:defRPr lang=""en-US"" smtClean=""0""/></a:lvl1pPr>
+    </p:bodyStyle>
+    <p:otherStyle>
+      <a:defPPr><a:defRPr lang=""en-US"" smtClean=""0""/></a:defPPr>
+    </p:otherStyle>
+  </p:txStyles>
+</p:sldMaster>";
+
+        static string SlideLayoutXml() =>
+@"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>
+<p:sldLayout xmlns:p=""http://schemas.openxmlformats.org/presentationml/2006/main""
+             xmlns:a=""http://schemas.openxmlformats.org/drawingml/2006/main""
+             xmlns:r=""http://schemas.openxmlformats.org/officeDocument/2006/relationships""
+             type=""blank"" preserve=""1"">
+  <p:cSld name=""Blank"">
+    <p:spTree>
+      <p:nvGrpSpPr>
+        <p:cNvPr id=""1"" name=""""/>
+        <p:cNvGrpSpPr/>
+        <p:nvPr/>
+      </p:nvGrpSpPr>
+      <p:grpSpPr>
+        <a:xfrm>
+          <a:off x=""0"" y=""0""/>
+          <a:ext cx=""0"" cy=""0""/>
+          <a:chOff x=""0"" y=""0""/>
+          <a:chExt cx=""0"" cy=""0""/>
+        </a:xfrm>
+      </p:grpSpPr>
+    </p:spTree>
+  </p:cSld>
+  <p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>
+</p:sldLayout>";
+
+        static string SlideXml(string imgRId, string name, long offX, long offY, long picW, long picH) =>
+$@"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>
+<p:sld xmlns:p=""http://schemas.openxmlformats.org/presentationml/2006/main""
+       xmlns:a=""http://schemas.openxmlformats.org/drawingml/2006/main""
+       xmlns:r=""http://schemas.openxmlformats.org/officeDocument/2006/relationships"">
+  <p:cSld>
+    <p:spTree>
+      <p:nvGrpSpPr>
+        <p:cNvPr id=""1"" name=""""/>
+        <p:cNvGrpSpPr/>
+        <p:nvPr/>
+      </p:nvGrpSpPr>
+      <p:grpSpPr>
+        <a:xfrm>
+          <a:off x=""0"" y=""0""/>
+          <a:ext cx=""0"" cy=""0""/>
+          <a:chOff x=""0"" y=""0""/>
+          <a:chExt cx=""0"" cy=""0""/>
+        </a:xfrm>
+      </p:grpSpPr>
+      <p:pic>
+        <p:nvPicPr>
+          <p:cNvPr id=""2"" name=""{System.Security.SecurityElement.Escape(name)}""/>
+          <p:cNvPicPr><a:picLocks noChangeAspect=""1""/></p:cNvPicPr>
+          <p:nvPr/>
+        </p:nvPicPr>
+        <p:blipFill>
+          <a:blip r:embed=""{imgRId}""/>
+          <a:stretch><a:fillRect/></a:stretch>
+        </p:blipFill>
+        <p:spPr>
+          <a:xfrm>
+            <a:off x=""{offX}"" y=""{offY}""/>
+            <a:ext cx=""{picW}"" cy=""{picH}""/>
+          </a:xfrm>
+          <a:prstGeom prst=""rect""><a:avLst/></a:prstGeom>
+        </p:spPr>
+      </p:pic>
+    </p:spTree>
+  </p:cSld>
+  <p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>
+</p:sld>";
     }
 }

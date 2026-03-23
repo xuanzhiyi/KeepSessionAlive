@@ -1032,6 +1032,10 @@ namespace KeepSessionAlive
                 return;
             }
 
+            AppendTextBox($"{DateTime.Now:HH:mm:ss} - Exporting {_captures.Count} capture(s)...\r\n");
+            for (int i = 0; i < _captures.Count; i++)
+                AppendTextBox($"  [{i + 1}] {_captures[i].Width}x{_captures[i].Height} px\r\n");
+
             using (var dlg = new SaveFileDialog())
             {
                 dlg.Title = "Export Captures to PowerPoint";
@@ -1041,10 +1045,12 @@ namespace KeepSessionAlive
 
                 if (dlg.ShowDialog() != DialogResult.OK) return;
 
+                AppendTextBox($"{DateTime.Now:HH:mm:ss} - Writing to: {dlg.FileName}\r\n");
+
                 try
                 {
-                    PptxExporter.Create(dlg.FileName, _captures);
-                    AppendTextBox($"{DateTime.Now:HH:mm:ss} - Exported {_captures.Count} slides to {dlg.FileName}\r\n");
+                    PptxExporter.Create(dlg.FileName, _captures, AppendTextBox);
+                    AppendTextBox($"{DateTime.Now:HH:mm:ss} - Export complete: {_captures.Count} slide(s) → {dlg.FileName}\r\n");
 
                     // Clear captures
                     foreach (var bmp in _captures) bmp.Dispose();
@@ -1053,7 +1059,11 @@ namespace KeepSessionAlive
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Failed to export: {ex.Message}", "Error",
+                    AppendTextBox($"{DateTime.Now:HH:mm:ss} - EXPORT FAILED: {ex.GetType().Name}: {ex.Message}\r\n");
+                    if (ex.InnerException != null)
+                        AppendTextBox($"  Inner: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}\r\n");
+                    AppendTextBox($"  Stack:\r\n{ex.StackTrace}\r\n");
+                    MessageBox.Show($"Failed to export:\n{ex.Message}", "Error",
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }

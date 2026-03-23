@@ -76,8 +76,9 @@ namespace KeepSessionAlive
                     slidePart.AddPart(slideLayoutPart); // establishes slide→layout relationship
                     Log($"  PNG {pngBytes:N0} bytes  imgRId={imgRId}");
 
+                    // 5% margin top and bottom → image fits within 90% of slide height
                     float scale = Math.Min(slideW / (float)images[i].Width,
-                                          slideH / (float)images[i].Height);
+                                          slideH * 0.90f / (float)images[i].Height);
                     long picW = (long)(images[i].Width  * scale);
                     long picH = (long)(images[i].Height * scale);
                     long offX = (slideW - picW) / 2;

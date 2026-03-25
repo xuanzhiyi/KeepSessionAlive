@@ -799,7 +799,7 @@ namespace KeepSessionAlive
                 {
                     IsAudioEnabled         = true,
                     IsInputDeviceEnabled   = true,   // microphone
-                    IsOutputDeviceEnabled  = false,   // no system audio
+                    IsOutputDeviceEnabled  = true,   // system audio (captures Teams/speakers)
                 },
             };
 

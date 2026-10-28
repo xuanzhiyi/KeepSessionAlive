@@ -60,7 +60,14 @@ namespace KeepSessionAlive
         private const float PinchThreshold = 0.30f;
 
         // Hand travel (hand-size units) per wheel notch; lower = faster scroll
-        private const float ScrollStep  = 0.12f;
+        private const float ScrollStep  = 0.15f;
+
+        // Camera-frame box (normalized) mapped to the full screen; smaller box = more sensitive.
+        // Bottom is kept high because the hand leaves the frame before the fingertip reaches the edge.
+        private const float ActiveLeft   = 0.20f;
+        private const float ActiveRight  = 0.80f;
+        private const float ActiveTop    = 0.15f;
+        private const float ActiveBottom = 0.65f;
         private const float ScrollAlpha = 0.5f;
         private const int   WheelDelta  = 120;
 
@@ -240,7 +247,9 @@ namespace KeepSessionAlive
             if (g == Gesture.Point)
             {
                 // Mirror X so movement feels natural (camera flips horizontally)
-                CursorMoved?.Invoke(1f - _smoothX, _smoothY);
+                CursorMoved?.Invoke(
+                    MapToScreen(1f - _smoothX, ActiveLeft, ActiveRight),
+                    MapToScreen(_smoothY, ActiveTop, ActiveBottom));
             }
 
             // ── Clutch scroll ────────────────────────────────────────────────
@@ -318,6 +327,12 @@ namespace KeepSessionAlive
                 return idx == 42 ? result : null;
             }
             catch { return null; }
+        }
+
+        private static float MapToScreen(float v, float min, float max)
+        {
+            float t = (v - min) / (max - min);
+            return t < 0f ? 0f : t > 1f ? 1f : t;
         }
 
         private static float Dist(float x1, float y1, float x2, float y2)

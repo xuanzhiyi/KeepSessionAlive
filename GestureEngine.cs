@@ -32,6 +32,8 @@ namespace KeepSessionAlive
         public event Action<float> Scrolled;
         /// Fired when the active gesture changes.
         public event Action<Gesture> GestureChanged;
+        /// Diagnostic / error messages from the Python process (stderr lines).
+        public event Action<string> DiagnosticMessage;
 
         // ── Win32 ─────────────────────────────────────────────────────────────
         [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
@@ -43,6 +45,7 @@ namespace KeepSessionAlive
         // ── State ─────────────────────────────────────────────────────────────
         private Process _proc;
         private Thread  _reader;
+        private Thread  _errReader;
         private volatile bool _stop;
 
         private float _smoothX = 0.5f, _smoothY = 0.5f;
@@ -92,8 +95,10 @@ namespace KeepSessionAlive
             };
             _proc.Start();
 
-            _reader = new Thread(ReadLoop) { IsBackground = true, Name = "GestureReader" };
+            _reader    = new Thread(ReadLoop)    { IsBackground = true, Name = "GestureReader" };
+            _errReader = new Thread(ReadErrLoop) { IsBackground = true, Name = "GestureErrReader" };
             _reader.Start();
+            _errReader.Start();
         }
 
         public void Stop()
@@ -134,7 +139,7 @@ namespace KeepSessionAlive
             return null;
         }
 
-        // ── Background reader ─────────────────────────────────────────────────
+        // ── Background readers ────────────────────────────────────────────────
         private void ReadLoop()
         {
             try
@@ -142,6 +147,17 @@ namespace KeepSessionAlive
                 string line;
                 while (!_stop && (line = _proc?.StandardOutput?.ReadLine()) != null)
                     ProcessLine(line);
+            }
+            catch { }
+        }
+
+        private void ReadErrLoop()
+        {
+            try
+            {
+                string line;
+                while (!_stop && (line = _proc?.StandardError?.ReadLine()) != null)
+                    DiagnosticMessage?.Invoke(line);
             }
             catch { }
         }

@@ -1207,10 +1207,11 @@ namespace KeepSessionAlive
             statusGesture.ToolTipText = "Gesture Control: Starting…";
 
             var engine = new GestureEngine();
-            engine.CursorMoved    += OnGestureCursorMoved;
-            engine.Clicked        += OnGestureClicked;
-            engine.Scrolled       += OnGestureScrolled;
-            engine.GestureChanged += OnGestureChanged;
+            engine.CursorMoved        += OnGestureCursorMoved;
+            engine.Clicked            += OnGestureClicked;
+            engine.Scrolled           += OnGestureScrolled;
+            engine.GestureChanged     += OnGestureChanged;
+            engine.DiagnosticMessage  += OnGestureDiagnostic;
 
             Task.Run(() =>
             {
@@ -1263,17 +1264,21 @@ namespace KeepSessionAlive
             mouse_event(0x0800, 0, 0, -(int)delta, 0);
         }
 
+        private void OnGestureDiagnostic(string msg)
+        {
+            BeginInvoke((Action)(() =>
+                AppendTextBox($"{DateTime.Now:HH:mm:ss} - [gesture] {msg}\r\n")));
+        }
+
         private void OnGestureChanged(GestureEngine.Gesture g)
         {
             BeginInvoke((Action)(() =>
             {
-                string label = g switch
-                {
-                    GestureEngine.Gesture.Point    => "☝ Point — moving cursor",
-                    GestureEngine.Gesture.Scroll   => "✌ Scroll — move hand up/down",
-                    GestureEngine.Gesture.OpenPalm => "✋ Open palm — paused",
-                    _                              => "Gesture Control: On",
-                };
+                string label;
+                if      (g == GestureEngine.Gesture.Point)    label = "☝ Point — moving cursor";
+                else if (g == GestureEngine.Gesture.Scroll)   label = "✌ Scroll — move hand up/down";
+                else if (g == GestureEngine.Gesture.OpenPalm) label = "✋ Open palm — paused";
+                else                                           label = "Gesture Control: On";
                 statusGesture.ToolTipText = label;
                 if (g != GestureEngine.Gesture.None)
                     AppendTextBox($"{DateTime.Now:HH:mm:ss} - Gesture: {g}\r\n");

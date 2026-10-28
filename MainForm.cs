@@ -1211,6 +1211,7 @@ namespace KeepSessionAlive
             var engine = new GestureEngine();
             engine.CursorMoved        += OnGestureCursorMoved;
             engine.LeftClicked        += OnGestureLeftClicked;
+            engine.DoubleClicked      += OnGestureDoubleClicked;
             engine.RightClicked       += OnGestureRightClicked;
             engine.Scrolled           += OnGestureScrolled;
             engine.ScrolledHorizontal += OnGestureScrolledHorizontal;
@@ -1262,6 +1263,12 @@ namespace KeepSessionAlive
             mouse_event(MOUSEEVENTF_LEFTUP,   0, 0, 0, 0);
         }
 
+        private void OnGestureDoubleClicked()
+        {
+            OnGestureLeftClicked();
+            OnGestureLeftClicked();
+        }
+
         private void OnGestureRightClicked()
         {
             mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0);
@@ -1293,6 +1300,7 @@ namespace KeepSessionAlive
                 string label;
                 if      (g == GestureEngine.Gesture.Move)       label = "✊ Fist — moving cursor";
                 else if (g == GestureEngine.Gesture.LeftClick)  label = "☝ Index — left click";
+                else if (g == GestureEngine.Gesture.DoubleClick) label = "✌ V — double click";
                 else if (g == GestureEngine.Gesture.RightClick) label = "👌 OK — right click";
                 else if (g == GestureEngine.Gesture.Scroll)     label = "✋ Palm — move away from centre to scroll";
                 else                                            label = "Gesture Control: On";

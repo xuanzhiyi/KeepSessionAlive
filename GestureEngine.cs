@@ -21,6 +21,7 @@ namespace KeepSessionAlive
             None,
             Move,        // ✊ fist (trained)          → move cursor
             LeftClick,   // ☝ index only (trained)     → left click once
+            DoubleClick, // ✌ V (trained)              → left double click
             RightClick,  // 👌 OK sign (geometry rule) → right click once
             Scroll,      // ✋ open palm (trained)      → joystick scroll
         }
@@ -29,6 +30,7 @@ namespace KeepSessionAlive
         /// Normalized cursor position [0-1, 0-1].
         public event Action<float, float> CursorMoved;
         public event Action LeftClicked;
+        public event Action DoubleClicked;
         public event Action RightClicked;
         /// Wheel delta: positive = down, negative = up.
         public event Action<int> Scrolled;
@@ -269,6 +271,7 @@ namespace KeepSessionAlive
             {
                 case "Closed_Fist": return Gesture.Move;
                 case "Pointing_Up": return Gesture.LeftClick;
+                case "Victory":     return Gesture.DoubleClick;
                 case "Open_Palm":   return Gesture.Scroll;
                 default:            return Gesture.None;
             }
@@ -292,11 +295,12 @@ namespace KeepSessionAlive
             if (g == _current) return;
             _current = g;
 
-            if (g == Gesture.LeftClick || g == Gesture.RightClick)
+            if (g == Gesture.LeftClick || g == Gesture.DoubleClick || g == Gesture.RightClick)
             {
                 RewindCursor();
-                if (g == Gesture.LeftClick) LeftClicked?.Invoke();
-                else                        RightClicked?.Invoke();
+                if      (g == Gesture.LeftClick)   LeftClicked?.Invoke();
+                else if (g == Gesture.DoubleClick) DoubleClicked?.Invoke();
+                else                               RightClicked?.Invoke();
             }
             if (g == Gesture.Scroll)
             {

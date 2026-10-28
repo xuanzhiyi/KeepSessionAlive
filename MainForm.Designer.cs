@@ -190,6 +190,7 @@ namespace KeepSessionAlive
             this.statusCapture     = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusExportPpt   = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusAdLookup    = new System.Windows.Forms.ToolStripStatusLabel();
+            this.statusGesture     = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
                 this.statusOnline,
                 this.statusLog,
@@ -198,6 +199,7 @@ namespace KeepSessionAlive
                 this.statusCapture,
                 this.statusExportPpt,
                 this.statusAdLookup,
+                this.statusGesture,
                 this.statusSpacer,
                 this.statusRecord });
             this.statusStrip1.Name = "statusStrip1";
@@ -284,6 +286,18 @@ namespace KeepSessionAlive
             this.statusAdLookup.IsLink = true;
             this.statusAdLookup.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
             this.statusAdLookup.Click += new System.EventHandler(this.statusAdLookup_Click);
+            //
+            // statusGesture — hand gesture control toggle
+            //
+            this.statusGesture.Name = "statusGesture";
+            this.statusGesture.Text = "";
+            this.statusGesture.Font = MainForm.FaFont(14F);
+            this.statusGesture.ForeColor = System.Drawing.Color.Gray;
+            this.statusGesture.Padding = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.statusGesture.ToolTipText = "Gesture Control: Off";
+            this.statusGesture.IsLink = true;
+            this.statusGesture.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
+            this.statusGesture.Click += new System.EventHandler(this.statusGesture_Click);
             //
             // statusSpacer — pushes record to the right
             //
@@ -465,6 +479,7 @@ namespace KeepSessionAlive
         private System.Windows.Forms.ToolStripStatusLabel statusCapture;
         private System.Windows.Forms.ToolStripStatusLabel statusExportPpt;
         private System.Windows.Forms.ToolStripStatusLabel statusAdLookup;
+        private System.Windows.Forms.ToolStripStatusLabel statusGesture;
         private System.Windows.Forms.ToolStripStatusLabel statusRecord;
     }
 }

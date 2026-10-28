@@ -99,6 +99,7 @@
     <Compile Include="AdLookupForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="GestureEngine.cs" />
     <Compile Include="PptxExporter.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -126,6 +127,11 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="gesture_tracker.py">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\Font Awesome 7 Free-Solid-900.otf" />

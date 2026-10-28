@@ -28,6 +28,9 @@ namespace KeepSessionAlive
         static extern bool LockWorkStation();
 
         [DllImport("user32.dll")]
+        static extern bool SetCursorPos(int x, int y);
+
+        [DllImport("user32.dll")]
         static extern IntPtr GetForegroundWindow();
 
         [DllImport("user32.dll")]
@@ -123,6 +126,9 @@ namespace KeepSessionAlive
 
         // --- Screen capture state ---
         private readonly List<Bitmap> _captures = new List<Bitmap>();
+
+        // --- Gesture engine ---
+        private GestureEngine _gestureEngine;
 
         // --- FontAwesome ---
         private static PrivateFontCollection _faFonts;
@@ -271,6 +277,8 @@ namespace KeepSessionAlive
             statusAdLookup.ForeColor      = orange;
             statusAdLookup.LinkColor      = orange;
             statusAdLookup.ActiveLinkColor = System.Drawing.Color.White;
+            statusGesture.LinkColor        = System.Drawing.Color.Gray;
+            statusGesture.ActiveLinkColor  = System.Drawing.Color.White;
             trayMenuCapture.BackColor  = surface;
             trayMenuCapture.ForeColor  = text;
             trayMenuExportPpt.BackColor = surface;
@@ -1086,6 +1094,10 @@ namespace KeepSessionAlive
             foreach (var bmp in _captures) bmp.Dispose();
             _captures.Clear();
 
+            // Clean up gesture engine
+            _gestureEngine?.Stop();
+            _gestureEngine?.Dispose();
+
             base.OnFormClosing(e);
         }
 
@@ -1173,6 +1185,99 @@ namespace KeepSessionAlive
             }
 
             AppendTextBox($"{DateTime.Now:HH:mm:ss} - Snapped {total} windows to grid.\r\n");
+        }
+
+        // ── Gesture control ───────────────────────────────────────────────────
+        private void statusGesture_Click(object sender, EventArgs e)
+        {
+            if (_gestureEngine != null && _gestureEngine.IsRunning)
+            {
+                _gestureEngine.Stop();
+                _gestureEngine.Dispose();
+                _gestureEngine = null;
+                statusGesture.ForeColor  = System.Drawing.Color.Gray;
+                statusGesture.LinkColor  = System.Drawing.Color.Gray;
+                statusGesture.ToolTipText = "Gesture Control: Off";
+                AppendTextBox($"{DateTime.Now:HH:mm:ss} - Gesture control stopped.\r\n");
+                return;
+            }
+
+            statusGesture.ForeColor   = System.Drawing.Color.Gold;
+            statusGesture.LinkColor   = System.Drawing.Color.Gold;
+            statusGesture.ToolTipText = "Gesture Control: Starting…";
+
+            var engine = new GestureEngine();
+            engine.CursorMoved    += OnGestureCursorMoved;
+            engine.Clicked        += OnGestureClicked;
+            engine.Scrolled       += OnGestureScrolled;
+            engine.GestureChanged += OnGestureChanged;
+
+            Task.Run(() =>
+            {
+                try
+                {
+                    engine.Start();
+                    BeginInvoke((Action)(() =>
+                    {
+                        _gestureEngine = engine;
+                        statusGesture.ForeColor   = System.Drawing.Color.LimeGreen;
+                        statusGesture.LinkColor   = System.Drawing.Color.LimeGreen;
+                        statusGesture.ToolTipText = "Gesture Control: On";
+                        AppendTextBox($"{DateTime.Now:HH:mm:ss} - Gesture control started.\r\n");
+                    }));
+                }
+                catch (Exception ex)
+                {
+                    engine.Dispose();
+                    BeginInvoke((Action)(() =>
+                    {
+                        statusGesture.ForeColor   = System.Drawing.Color.Gray;
+                        statusGesture.LinkColor   = System.Drawing.Color.Gray;
+                        statusGesture.ToolTipText = "Gesture Control: Off";
+                        MessageBox.Show(
+                            $"Could not start gesture tracker:\n{ex.Message}\n\n" +
+                            "Make sure Python is installed and run:\n  pip install mediapipe opencv-python",
+                            "Gesture Control", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }));
+                }
+            });
+        }
+
+        private void OnGestureCursorMoved(float normX, float normY)
+        {
+            var screen = Screen.PrimaryScreen.WorkingArea;
+            int x = (int)(normX * screen.Width)  + screen.Left;
+            int y = (int)(normY * screen.Height) + screen.Top;
+            SetCursorPos(x, y);
+        }
+
+        private void OnGestureClicked()
+        {
+            mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+            mouse_event(MOUSEEVENTF_LEFTUP,   0, 0, 0, 0);
+        }
+
+        private void OnGestureScrolled(float delta)
+        {
+            // MOUSEEVENTF_WHEEL = 0x0800; positive dwData = scroll up
+            mouse_event(0x0800, 0, 0, -(int)delta, 0);
+        }
+
+        private void OnGestureChanged(GestureEngine.Gesture g)
+        {
+            BeginInvoke((Action)(() =>
+            {
+                string label = g switch
+                {
+                    GestureEngine.Gesture.Point    => "☝ Point — moving cursor",
+                    GestureEngine.Gesture.Scroll   => "✌ Scroll — move hand up/down",
+                    GestureEngine.Gesture.OpenPalm => "✋ Open palm — paused",
+                    _                              => "Gesture Control: On",
+                };
+                statusGesture.ToolTipText = label;
+                if (g != GestureEngine.Gesture.None)
+                    AppendTextBox($"{DateTime.Now:HH:mm:ss} - Gesture: {g}\r\n");
+            }));
         }
 
         private void runQuery()

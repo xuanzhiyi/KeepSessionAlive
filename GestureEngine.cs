@@ -1,16 +1,17 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 
 namespace KeepSessionAlive
 {
     /// <summary>
-    /// Spawns gesture_tracker.py, reads MediaPipe hand landmarks from its stdout,
-    /// classifies gestures, and raises events the caller maps to mouse actions.
+    /// Spawns gesture_tracker.py, reads MediaPipe gesture labels + hand landmarks from its stdout,
+    /// and raises events the caller maps to mouse actions.
     /// </summary>
     internal sealed class GestureEngine : IDisposable
     {
@@ -18,29 +19,47 @@ namespace KeepSessionAlive
         public enum Gesture
         {
             None,
-            Point,      // index extended only  → move cursor
-            Scroll,     // thumb+index+middle tips bunched → clutch scroll
-            OpenPalm,   // all five extended     → pause actions
+            Move,        // ✊ fist (trained)          → move cursor
+            LeftClick,   // ☝ index only (trained)     → left click once
+            RightClick,  // 👌 OK sign (geometry rule) → right click once
+            Scroll,      // ✋ open palm (trained)      → joystick scroll
         }
 
         // ── Events ────────────────────────────────────────────────────────────
-        /// Normalized cursor position [0-1, 0-1] derived from index fingertip.
+        /// Normalized cursor position [0-1, 0-1].
         public event Action<float, float> CursorMoved;
-        /// Mouse left-click (pinch: index tip meets thumb tip).
-        public event Action Clicked;
-        /// Scroll delta: positive = down, negative = up.
-        public event Action<float> Scrolled;
+        public event Action LeftClicked;
+        public event Action RightClicked;
+        /// Wheel delta: positive = down, negative = up.
+        public event Action<int> Scrolled;
+        /// Horizontal wheel delta: positive = right, negative = left.
+        public event Action<int> ScrolledHorizontal;
         /// Fired when the active gesture changes.
         public event Action<Gesture> GestureChanged;
         /// Diagnostic / error messages from the Python process (stderr lines).
         public event Action<string> DiagnosticMessage;
 
-        // ── Win32 ─────────────────────────────────────────────────────────────
-        [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
-        [DllImport("user32.dll")] static extern void mouse_event(uint flags, int dx, int dy, int data, int extra);
-        private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
-        private const uint MOUSEEVENTF_LEFTUP   = 0x0004;
-        private const uint MOUSEEVENTF_WHEEL    = 0x0800;
+        // ── Tuning ────────────────────────────────────────────────────────────
+        // Minimum model confidence to accept a trained label
+        private const float MinScore = 0.6f;
+        // A new pose must be held this long before it takes effect (filters flicker)
+        private const int StableMs = 150;
+
+        // Camera-frame box (normalized) mapped to the full screen; smaller box = more sensitive.
+        // Bottom is kept high because the hand leaves the frame before reaching the edge.
+        private const float ActiveLeft   = 0.20f;
+        private const float ActiveRight  = 0.80f;
+        private const float ActiveTop    = 0.15f;
+        private const float ActiveBottom = 0.65f;
+        private const float SmoothAlpha  = 0.3f;
+
+        // OK sign: thumb–index tip gap in hand-size units (wrist → middle knuckle)
+        private const float OkPinch = 0.30f;
+
+        // Joystick scroll, offsets in hand-size units from where the palm first appeared
+        private const float ScrollDeadZone = 0.40f;
+        private const float ScrollRate     = 10f;  // notches per second per hand-size beyond the dead zone
+        private const int   WheelDelta     = 120;
 
         // ── State ─────────────────────────────────────────────────────────────
         private Process _proc;
@@ -48,39 +67,34 @@ namespace KeepSessionAlive
         private Thread  _errReader;
         private volatile bool _stop;
 
-        private float _smoothX = 0.5f, _smoothY = 0.5f;
-        private const float SmoothAlpha = 0.25f;
-
         private Gesture  _current   = Gesture.None;
-        private bool     _prevPinch;
+        private Gesture  _candidate = Gesture.None;
+        private DateTime _candidateSince;
 
-        // Thresholds are in hand-size units (wrist → middle knuckle)
-        private const float ClutchEngage   = 0.35f;
-        private const float ClutchRelease  = 0.55f;
-        private const float PinchThreshold = 0.30f;
+        private float _smoothX = 0.5f, _smoothY = 0.5f;
 
-        // Hand travel (hand-size units) per wheel notch; lower = faster scroll
-        private const float ScrollStep  = 0.15f;
+        // Recent cursor positions, used to undo drift when a click fires
+        private struct CursorSample
+        {
+            public readonly DateTime Time;
+            public readonly float X, Y;
+            public CursorSample(DateTime time, float x, float y) { Time = time; X = x; Y = y; }
+        }
+        private readonly Queue<CursorSample> _cursorHistory = new Queue<CursorSample>();
+        private const int HistoryMs = 1000;
+        // How far before the pose change to rewind; raise if clicks still land off target
+        private const int RewindMs  = 150;
 
-        // Camera-frame box (normalized) mapped to the full screen; smaller box = more sensitive.
-        // Bottom is kept high because the hand leaves the frame before the fingertip reaches the edge.
-        private const float ActiveLeft   = 0.20f;
-        private const float ActiveRight  = 0.80f;
-        private const float ActiveTop    = 0.15f;
-        private const float ActiveBottom = 0.65f;
-        private const float ScrollAlpha = 0.5f;
-        private const int   WheelDelta  = 120;
+        private float    _scrollCenterX, _scrollCenterY;
+        private float    _scrollAccumX, _scrollAccumY;
+        private DateTime _lastFrame;
 
-        private bool  _scrolling;
-        private float _scrollY;
-        private float _scrollAccum;
-        private DateTime _lastClick = DateTime.MinValue;
-        private const int ClickCooldownMs = 600;
+        private static readonly Regex LabelRegex = new Regex("\"g\":\\s*\"([^\"]*)\"", RegexOptions.Compiled);
+        private static readonly Regex ScoreRegex = new Regex("\"s\":\\s*([0-9.eE+-]+)", RegexOptions.Compiled);
 
         // ── Lifecycle ─────────────────────────────────────────────────────────
         public bool IsRunning => _proc != null && !_proc.HasExited;
 
-        // Try these in order until one produces output on the first line.
         private static readonly string[] PythonCandidates = { "python", "py", "python3" };
 
         public void Start(string pythonExe = null)
@@ -182,114 +196,187 @@ namespace KeepSessionAlive
             catch { }
         }
 
-        // ── Landmark processing ───────────────────────────────────────────────
+        // ── Frame processing ──────────────────────────────────────────────────
         private void ProcessLine(string line)
         {
-            if (line.Contains("\"lm\":null") || line.Contains("\"lm\": null"))
+            DateTime now = DateTime.UtcNow;
+            float dt = _lastFrame == default(DateTime) ? 0f : (float)(now - _lastFrame).TotalSeconds;
+            _lastFrame = now;
+
+            float[] pts = line.Contains("\"lm\": null") || line.Contains("\"lm\":null")
+                ? null : ParseLandmarks(line);
+            if (pts == null)
             {
-                SetGesture(Gesture.None);
+                Classify(Gesture.None, now);
                 return;
             }
 
-            float[] pts = ParseLandmarks(line);
-            if (pts == null || pts.Length < 42)
-            {
-                SetGesture(Gesture.None);
-                return;
-            }
-
-            // Accessors for landmark i  (image coords: y=0 top, y=1 bottom)
             float Lx(int i) => pts[i * 2];
             float Ly(int i) => pts[i * 2 + 1];
-
             float D(int a, int b) => Dist(Lx(a), Ly(a), Lx(b), Ly(b));
 
-            // Wrist → middle-knuckle length; makes thresholds independent of distance to camera
             float handSize = D(0, 9);
-            if (handSize < 0.01f) { SetGesture(Gesture.None); return; }
+            if (handSize < 0.01f) { Classify(Gesture.None, now); return; }
 
-            // Extended = tip clearly farther from wrist than its PIP joint (works at any hand angle)
+            // OK sign isn't a trained label: thumb+index ring with middle/ring/pinky extended.
+            // Checked first because the model tends to call it Open_Palm.
             bool Extended(int tip, int pip) => D(tip, 0) > D(pip, 0) * 1.15f;
-            bool indexUp  = Extended(8, 6);
-            bool middleUp = Extended(12, 10);
-            bool ringUp   = Extended(16, 14);
-            bool pinkyUp  = Extended(20, 18);
-            bool thumbOut = D(4, 17) > D(3, 17) * 1.1f;
+            bool okSign = D(4, 8) / handSize < OkPinch
+                          && Extended(12, 10) && Extended(16, 14) && Extended(20, 18);
 
-            float thumbIndex  = D(4, 8)  / handSize;
-            float thumbMiddle = D(4, 12) / handSize;
-            float indexMiddle = D(8, 12) / handSize;
-
-            // Clutch: thumb, index, middle tips bunched together; hysteresis stops flicker
-            float spread = Math.Max(thumbIndex, Math.Max(thumbMiddle, indexMiddle));
-            bool scrolling = _scrolling ? spread < ClutchRelease : spread < ClutchEngage;
-
-            // Pinch click: thumb meets index while middle stays clear (otherwise it's the clutch)
-            bool pinching = !scrolling && thumbIndex < PinchThreshold && thumbMiddle > ClutchRelease;
-
-            // ── Classify gesture ─────────────────────────────────────────────
-            Gesture g;
-            if (scrolling)
-                g = Gesture.Scroll;
-            else if (indexUp && middleUp && ringUp && pinkyUp && thumbOut)
-                g = Gesture.OpenPalm;
-            else if (indexUp && !middleUp && !ringUp && !pinkyUp)
-                g = Gesture.Point;
+            Gesture seen;
+            if (okSign)
+                seen = Gesture.RightClick;
             else
-                g = Gesture.None;
+                seen = FromLabel(ParseLabel(line, out float score), score);
 
-            SetGesture(g);
+            Classify(seen, now);
 
-            // ── Smooth index fingertip position ──────────────────────────────
-            _smoothX = SmoothAlpha * Lx(8) + (1f - SmoothAlpha) * _smoothX;
-            _smoothY = SmoothAlpha * Ly(8) + (1f - SmoothAlpha) * _smoothY;
+            // Palm centre (wrist + four knuckles) is stable in every pose, unlike fingertips
+            float palmX = (Lx(0) + Lx(5) + Lx(9) + Lx(13) + Lx(17)) / 5f;
+            float palmY = (Ly(0) + Ly(5) + Ly(9) + Ly(13) + Ly(17)) / 5f;
 
-            if (g == Gesture.Point)
+            // Only move while this frame is also a fist, so the cursor freezes the moment the hand
+            // starts changing shape instead of after the new pose is confirmed
+            if (_current == Gesture.Move && seen == Gesture.Move)
             {
+                _smoothX = SmoothAlpha * palmX + (1f - SmoothAlpha) * _smoothX;
+                _smoothY = SmoothAlpha * palmY + (1f - SmoothAlpha) * _smoothY;
                 // Mirror X so movement feels natural (camera flips horizontally)
-                CursorMoved?.Invoke(
-                    MapToScreen(1f - _smoothX, ActiveLeft, ActiveRight),
-                    MapToScreen(_smoothY, ActiveTop, ActiveBottom));
+                float cx = MapToScreen(1f - _smoothX, ActiveLeft, ActiveRight);
+                float cy = MapToScreen(_smoothY, ActiveTop, ActiveBottom);
+                CursorMoved?.Invoke(cx, cy);
+
+                _cursorHistory.Enqueue(new CursorSample(now, cx, cy));
+                while (_cursorHistory.Count > 0 && (now - _cursorHistory.Peek().Time).TotalMilliseconds > HistoryMs)
+                    _cursorHistory.Dequeue();
+            }
+            else if (_current != Gesture.Move)
+            {
+                // Track the hand anyway so the cursor doesn't jump on the next fist
+                _smoothX = palmX;
+                _smoothY = palmY;
             }
 
-            // ── Clutch scroll ────────────────────────────────────────────────
-            float clutchY = (Ly(4) + Ly(8) + Ly(12)) / 3f;
-            if (scrolling && !_scrolling)
-            {
-                // Just engaged: anchor here so the grab itself never scrolls
-                _scrollY      = clutchY;
-                _scrollAccum  = 0f;
-            }
-            else if (scrolling)
-            {
-                float prev = _scrollY;
-                _scrollY = ScrollAlpha * clutchY + (1f - ScrollAlpha) * _scrollY;
-                _scrollAccum += (_scrollY - prev) / handSize;
+            if (_current == Gesture.Scroll)
+                Joystick(palmX, palmY, handSize, dt);
+        }
 
-                while (_scrollAccum >= ScrollStep)  { Scrolled?.Invoke(WheelDelta);  _scrollAccum -= ScrollStep; }
-                while (_scrollAccum <= -ScrollStep) { Scrolled?.Invoke(-WheelDelta); _scrollAccum += ScrollStep; }
-            }
-            _scrolling = scrolling;
-
-            // Pinch click with debounce
-            if (pinching && !_prevPinch &&
-                (DateTime.UtcNow - _lastClick).TotalMilliseconds > ClickCooldownMs)
+        private static Gesture FromLabel(string label, float score)
+        {
+            if (score < MinScore) return Gesture.None;
+            switch (label)
             {
-                _lastClick = DateTime.UtcNow;
-                Clicked?.Invoke();
+                case "Closed_Fist": return Gesture.Move;
+                case "Pointing_Up": return Gesture.LeftClick;
+                case "Open_Palm":   return Gesture.Scroll;
+                default:            return Gesture.None;
             }
-            _prevPinch = pinching;
+        }
+
+        // A pose must persist for StableMs before it becomes current
+        private void Classify(Gesture seen, DateTime now)
+        {
+            if (seen != _candidate)
+            {
+                _candidate      = seen;
+                _candidateSince = now;
+                return;
+            }
+            if (seen != _current && (now - _candidateSince).TotalMilliseconds >= StableMs)
+                SetGesture(seen);
         }
 
         private void SetGesture(Gesture g)
         {
             if (g == _current) return;
             _current = g;
+
+            if (g == Gesture.LeftClick || g == Gesture.RightClick)
+            {
+                RewindCursor();
+                if (g == Gesture.LeftClick) LeftClicked?.Invoke();
+                else                        RightClicked?.Invoke();
+            }
+            if (g == Gesture.Scroll)
+            {
+                // Centre is set on the first scroll frame
+                _scrollCenterX = float.NaN;
+                _scrollAccumX = _scrollAccumY = 0f;
+            }
+
             GestureChanged?.Invoke(g);
         }
 
-        // ── JSON landmark parser ──────────────────────────────────────────────
-        // Parses: {"lm":[[x,y],...21 pairs...]}  without a JSON library dependency.
+        // Put the cursor back where it was just before the hand began changing shape,
+        // undoing drift from the last fist frames.
+        private void RewindCursor()
+        {
+            DateTime target = _candidateSince.AddMilliseconds(-RewindMs);
+            CursorSample? pick = null;
+            foreach (CursorSample s in _cursorHistory)
+            {
+                if (s.Time > target) break;
+                pick = s;
+            }
+            if (pick.HasValue)
+                CursorMoved?.Invoke(pick.Value.X, pick.Value.Y);
+            _cursorHistory.Clear();
+        }
+
+        // Palm offset from where it appeared sets scroll direction and speed; centre = stop.
+        private void Joystick(float palmX, float palmY, float handSize, float dt)
+        {
+            if (float.IsNaN(_scrollCenterX))
+            {
+                _scrollCenterX = palmX;
+                _scrollCenterY = palmY;
+                return;
+            }
+
+            // Mirror X: moving the hand to your right scrolls right
+            float offX = -(palmX - _scrollCenterX) / handSize;
+            float offY =  (palmY - _scrollCenterY) / handSize;
+
+            // Dominant axis only, so a slightly diagonal hand doesn't drift sideways
+            if (Math.Abs(offY) >= Math.Abs(offX))
+            {
+                _scrollAccumX = 0f;
+                _scrollAccumY += Rate(offY) * dt;
+                Emit(ref _scrollAccumY, Scrolled);
+            }
+            else
+            {
+                _scrollAccumY = 0f;
+                _scrollAccumX += Rate(offX) * dt;
+                Emit(ref _scrollAccumX, ScrolledHorizontal);
+            }
+        }
+
+        private static float Rate(float offset)
+        {
+            float beyond = Math.Abs(offset) - ScrollDeadZone;
+            return beyond <= 0f ? 0f : Math.Sign(offset) * beyond * ScrollRate;
+        }
+
+        private static void Emit(ref float accum, Action<int> scroll)
+        {
+            while (accum >= 1f)  { scroll?.Invoke(WheelDelta);  accum -= 1f; }
+            while (accum <= -1f) { scroll?.Invoke(-WheelDelta); accum += 1f; }
+        }
+
+        // ── JSON parsing ──────────────────────────────────────────────────────
+        private static string ParseLabel(string json, out float score)
+        {
+            score = 0f;
+            Match g = LabelRegex.Match(json);
+            Match s = ScoreRegex.Match(json);
+            if (s.Success)
+                float.TryParse(s.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out score);
+            return g.Success ? g.Groups[1].Value : "None";
+        }
+
+        // Parses the "lm":[[x,y],...21 pairs...] array without a JSON library dependency.
         private static float[] ParseLandmarks(string json)
         {
             try
@@ -298,15 +385,12 @@ namespace KeepSessionAlive
                 int end   = json.LastIndexOf("]]");
                 if (start < 0 || end < 0 || end <= start) return null;
 
-                // Slice out the array-of-arrays content
                 string inner = json.Substring(start + 1, end - start);
 
                 var result = new float[42];
                 int idx = 0;
 
-                // Each point is [x,y]; split on ']' to isolate each
-                string[] tokens = inner.Split(']');
-                foreach (string tok in tokens)
+                foreach (string tok in inner.Split(']'))
                 {
                     int bracket = tok.IndexOf('[');
                     if (bracket < 0) continue;

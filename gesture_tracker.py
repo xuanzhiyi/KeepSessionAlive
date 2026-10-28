@@ -1,10 +1,13 @@
 """
-Hand landmark tracker for KeepSessionAlive gesture control.
+Hand gesture tracker for KeepSessionAlive gesture control.
 Requires: pip install mediapipe opencv-python
 
 Writes one JSON line per frame to stdout:
-  {"lm": [[x,y], ...21 pairs...]}   - hand detected
-  {"lm": null}                       - no hand
+  {"g": "Closed_Fist", "s": 0.93, "lm": [[x,y], ...21 pairs...]}   - hand detected
+  {"lm": null}                                                     - no hand
+
+"g" is MediaPipe's trained gesture label (None, Closed_Fist, Open_Palm, Pointing_Up,
+Thumb_Down, Thumb_Up, Victory, ILoveYou) and "s" its confidence.
 """
 import os
 import sys
@@ -16,9 +19,9 @@ import mediapipe as mp
 from mediapipe.tasks.python import BaseOptions
 from mediapipe.tasks.python import vision
 
-MODEL_URL = ("https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
-             "hand_landmarker/float16/latest/hand_landmarker.task")
-MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hand_landmarker.task")
+MODEL_URL = ("https://storage.googleapis.com/mediapipe-models/gesture_recognizer/"
+             "gesture_recognizer/float16/latest/gesture_recognizer.task")
+MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gesture_recognizer.task")
 
 
 def log(msg):
@@ -28,7 +31,7 @@ def log(msg):
 def ensure_model():
     if os.path.exists(MODEL_PATH):
         return
-    log("INFO: downloading hand model (one-time)...")
+    log("INFO: downloading gesture model (one-time)...")
     urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
     log("INFO: model downloaded")
 
@@ -46,7 +49,7 @@ def main():
     cap.set(cv2.CAP_PROP_FPS, 30)
     log("INFO: camera opened")
 
-    options = vision.HandLandmarkerOptions(
+    options = vision.GestureRecognizerOptions(
         base_options=BaseOptions(model_asset_path=MODEL_PATH),
         running_mode=vision.RunningMode.VIDEO,
         num_hands=1,
@@ -55,7 +58,7 @@ def main():
     )
 
     start = time.monotonic()
-    with vision.HandLandmarker.create_from_options(options) as landmarker:
+    with vision.GestureRecognizer.create_from_options(options) as recognizer:
         log("INFO: tracking started")
         while True:
             ret, frame = cap.read()
@@ -66,11 +69,16 @@ def main():
             image = mp.Image(image_format=mp.ImageFormat.SRGB,
                              data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             timestamp_ms = int((time.monotonic() - start) * 1000)
-            result = landmarker.detect_for_video(image, timestamp_ms)
+            result = recognizer.recognize_for_video(image, timestamp_ms)
 
             if result.hand_landmarks:
                 lm = result.hand_landmarks[0]
-                data = {"lm": [[round(p.x, 4), round(p.y, 4)] for p in lm]}
+                top = result.gestures[0][0] if result.gestures and result.gestures[0] else None
+                data = {
+                    "g": top.category_name if top else "None",
+                    "s": round(top.score, 3) if top else 0.0,
+                    "lm": [[round(p.x, 4), round(p.y, 4)] for p in lm],
+                }
             else:
                 data = {"lm": None}
 

@@ -89,6 +89,8 @@ namespace KeepSessionAlive
         private const int MOUSEEVENTF_LEFTUP    = 0x0004;
         private const int MOUSEEVENTF_RIGHTDOWN = 0x0008;
         private const int MOUSEEVENTF_RIGHTUP   = 0x0010;
+        private const int MOUSEEVENTF_WHEEL     = 0x0800;
+        private const int MOUSEEVENTF_HWHEEL    = 0x1000;
         private const int MOUSEEVENTF_ABSOLUTE  = 0x8000;
 
         // 5 minutes of idle before triggering keep-alive; check every 10 seconds
@@ -1208,8 +1210,10 @@ namespace KeepSessionAlive
 
             var engine = new GestureEngine();
             engine.CursorMoved        += OnGestureCursorMoved;
-            engine.Clicked            += OnGestureClicked;
+            engine.LeftClicked        += OnGestureLeftClicked;
+            engine.RightClicked       += OnGestureRightClicked;
             engine.Scrolled           += OnGestureScrolled;
+            engine.ScrolledHorizontal += OnGestureScrolledHorizontal;
             engine.GestureChanged     += OnGestureChanged;
             engine.DiagnosticMessage  += OnGestureDiagnostic;
 
@@ -1252,16 +1256,28 @@ namespace KeepSessionAlive
             SetCursorPos(x, y);
         }
 
-        private void OnGestureClicked()
+        private void OnGestureLeftClicked()
         {
             mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
             mouse_event(MOUSEEVENTF_LEFTUP,   0, 0, 0, 0);
         }
 
-        private void OnGestureScrolled(float delta)
+        private void OnGestureRightClicked()
         {
-            // MOUSEEVENTF_WHEEL = 0x0800; positive dwData = scroll up
-            mouse_event(0x0800, 0, 0, -(int)delta, 0);
+            mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0);
+            mouse_event(MOUSEEVENTF_RIGHTUP,   0, 0, 0, 0);
+        }
+
+        private void OnGestureScrolled(int delta)
+        {
+            // Windows wheel: positive = up, so invert our positive = down
+            mouse_event(MOUSEEVENTF_WHEEL, 0, 0, -delta, 0);
+        }
+
+        private void OnGestureScrolledHorizontal(int delta)
+        {
+            // Windows horizontal wheel: positive = right
+            mouse_event(MOUSEEVENTF_HWHEEL, 0, 0, delta, 0);
         }
 
         private void OnGestureDiagnostic(string msg)
@@ -1275,10 +1291,11 @@ namespace KeepSessionAlive
             BeginInvoke((Action)(() =>
             {
                 string label;
-                if      (g == GestureEngine.Gesture.Point)    label = "☝ Point — moving cursor";
-                else if (g == GestureEngine.Gesture.Scroll)   label = "🤏 Scroll — move hand, spread fingers to release";
-                else if (g == GestureEngine.Gesture.OpenPalm) label = "✋ Open palm — paused";
-                else                                          label = "Gesture Control: On";
+                if      (g == GestureEngine.Gesture.Move)       label = "✊ Fist — moving cursor";
+                else if (g == GestureEngine.Gesture.LeftClick)  label = "☝ Index — left click";
+                else if (g == GestureEngine.Gesture.RightClick) label = "👌 OK — right click";
+                else if (g == GestureEngine.Gesture.Scroll)     label = "✋ Palm — move away from centre to scroll";
+                else                                            label = "Gesture Control: On";
                 statusGesture.ToolTipText = label;
                 if (g != GestureEngine.Gesture.None)
                     AppendTextBox($"{DateTime.Now:HH:mm:ss} - Gesture: {g}\r\n");

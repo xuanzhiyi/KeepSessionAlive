@@ -19,7 +19,7 @@ namespace KeepSessionAlive
         {
             None,
             Point,      // index extended only  → move cursor
-            Scroll,     // index + middle        → scroll
+            Scroll,     // thumb+index+middle tips bunched → clutch scroll
             OpenPalm,   // all five extended     → pause actions
         }
 
@@ -52,8 +52,21 @@ namespace KeepSessionAlive
         private const float SmoothAlpha = 0.25f;
 
         private Gesture  _current   = Gesture.None;
-        private float    _prevY;
         private bool     _prevPinch;
+
+        // Thresholds are in hand-size units (wrist → middle knuckle)
+        private const float ClutchEngage   = 0.35f;
+        private const float ClutchRelease  = 0.55f;
+        private const float PinchThreshold = 0.30f;
+
+        // Hand travel (hand-size units) per wheel notch; lower = faster scroll
+        private const float ScrollStep  = 0.12f;
+        private const float ScrollAlpha = 0.5f;
+        private const int   WheelDelta  = 120;
+
+        private bool  _scrolling;
+        private float _scrollY;
+        private float _scrollAccum;
         private DateTime _lastClick = DateTime.MinValue;
         private const int ClickCooldownMs = 600;
 
@@ -182,22 +195,37 @@ namespace KeepSessionAlive
             float Lx(int i) => pts[i * 2];
             float Ly(int i) => pts[i * 2 + 1];
 
-            // Finger extended: tip.y < pip.y  (tip is higher on screen than pip)
-            bool indexUp  = Ly(8)  < Ly(6);
-            bool middleUp = Ly(12) < Ly(10);
-            bool ringUp   = Ly(16) < Ly(14);
-            bool pinkyUp  = Ly(20) < Ly(18);
-            bool thumbUp  = Ly(4)  < Ly(2);
+            float D(int a, int b) => Dist(Lx(a), Ly(a), Lx(b), Ly(b));
 
-            // Pinch: index tip close to thumb tip
-            bool pinching = Dist(Lx(4), Ly(4), Lx(8), Ly(8)) < 0.06f;
+            // Wrist → middle-knuckle length; makes thresholds independent of distance to camera
+            float handSize = D(0, 9);
+            if (handSize < 0.01f) { SetGesture(Gesture.None); return; }
+
+            // Extended = tip clearly farther from wrist than its PIP joint (works at any hand angle)
+            bool Extended(int tip, int pip) => D(tip, 0) > D(pip, 0) * 1.15f;
+            bool indexUp  = Extended(8, 6);
+            bool middleUp = Extended(12, 10);
+            bool ringUp   = Extended(16, 14);
+            bool pinkyUp  = Extended(20, 18);
+            bool thumbOut = D(4, 17) > D(3, 17) * 1.1f;
+
+            float thumbIndex  = D(4, 8)  / handSize;
+            float thumbMiddle = D(4, 12) / handSize;
+            float indexMiddle = D(8, 12) / handSize;
+
+            // Clutch: thumb, index, middle tips bunched together; hysteresis stops flicker
+            float spread = Math.Max(thumbIndex, Math.Max(thumbMiddle, indexMiddle));
+            bool scrolling = _scrolling ? spread < ClutchRelease : spread < ClutchEngage;
+
+            // Pinch click: thumb meets index while middle stays clear (otherwise it's the clutch)
+            bool pinching = !scrolling && thumbIndex < PinchThreshold && thumbMiddle > ClutchRelease;
 
             // ── Classify gesture ─────────────────────────────────────────────
             Gesture g;
-            if (indexUp && middleUp && ringUp && pinkyUp && thumbUp)
-                g = Gesture.OpenPalm;
-            else if (indexUp && middleUp && !ringUp && !pinkyUp)
+            if (scrolling)
                 g = Gesture.Scroll;
+            else if (indexUp && middleUp && ringUp && pinkyUp && thumbOut)
+                g = Gesture.OpenPalm;
             else if (indexUp && !middleUp && !ringUp && !pinkyUp)
                 g = Gesture.Point;
             else
@@ -206,24 +234,33 @@ namespace KeepSessionAlive
             SetGesture(g);
 
             // ── Smooth index fingertip position ──────────────────────────────
-            float rawX = Lx(8);
-            float rawY = Ly(8);
-            _smoothX = SmoothAlpha * rawX + (1f - SmoothAlpha) * _smoothX;
-            _smoothY = SmoothAlpha * rawY + (1f - SmoothAlpha) * _smoothY;
+            _smoothX = SmoothAlpha * Lx(8) + (1f - SmoothAlpha) * _smoothX;
+            _smoothY = SmoothAlpha * Ly(8) + (1f - SmoothAlpha) * _smoothY;
 
-            // ── Dispatch actions ─────────────────────────────────────────────
             if (g == Gesture.Point)
             {
                 // Mirror X so movement feels natural (camera flips horizontally)
                 CursorMoved?.Invoke(1f - _smoothX, _smoothY);
             }
-            else if (g == Gesture.Scroll)
+
+            // ── Clutch scroll ────────────────────────────────────────────────
+            float clutchY = (Ly(4) + Ly(8) + Ly(12)) / 3f;
+            if (scrolling && !_scrolling)
             {
-                float dy = rawY - _prevY;
-                if (Math.Abs(dy) > 0.004f)
-                    Scrolled?.Invoke(dy * 800f);
-                _prevY = rawY;
+                // Just engaged: anchor here so the grab itself never scrolls
+                _scrollY      = clutchY;
+                _scrollAccum  = 0f;
             }
+            else if (scrolling)
+            {
+                float prev = _scrollY;
+                _scrollY = ScrollAlpha * clutchY + (1f - ScrollAlpha) * _scrollY;
+                _scrollAccum += (_scrollY - prev) / handSize;
+
+                while (_scrollAccum >= ScrollStep)  { Scrolled?.Invoke(WheelDelta);  _scrollAccum -= ScrollStep; }
+                while (_scrollAccum <= -ScrollStep) { Scrolled?.Invoke(-WheelDelta); _scrollAccum += ScrollStep; }
+            }
+            _scrolling = scrolling;
 
             // Pinch click with debounce
             if (pinching && !_prevPinch &&

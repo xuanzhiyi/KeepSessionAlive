@@ -1276,7 +1276,7 @@ namespace KeepSessionAlive
             {
                 string label;
                 if      (g == GestureEngine.Gesture.Point)    label = "☝ Point — moving cursor";
-                else if (g == GestureEngine.Gesture.Scroll)   label = "✌ Scroll — move hand up/down";
+                else if (g == GestureEngine.Gesture.Scroll)   label = "🤏 Scroll — move hand, spread fingers to release";
                 else if (g == GestureEngine.Gesture.OpenPalm) label = "✋ Open palm — paused";
                 else                                           label = "Gesture Control: On";
                 statusGesture.ToolTipText = label;

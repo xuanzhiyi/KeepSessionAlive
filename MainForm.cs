@@ -1251,7 +1251,8 @@ namespace KeepSessionAlive
 
         private void OnGestureCursorMoved(float normX, float normY)
         {
-            var screen = Screen.PrimaryScreen.WorkingArea;
+            // Full bounds, not WorkingArea, so the cursor can reach the taskbar
+            var screen = Screen.PrimaryScreen.Bounds;
             int x = (int)(normX * screen.Width)  + screen.Left;
             int y = (int)(normY * screen.Height) + screen.Top;
             SetCursorPos(x, y);
